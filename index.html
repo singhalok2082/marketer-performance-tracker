@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bench Ops Tracker</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: #F3F4F7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #16181D; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #D5D8E0; border-radius: 4px; }
+    @keyframes pulseDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+    @keyframes tickerIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .pulse { animation: pulseDot 1.6s ease-in-out infinite; }
+    .ticker-row { animation: tickerIn 0.35s ease-out; }
+    .toast-anim { animation: toastIn 0.25s ease-out; }
+    .team-row:hover { background: #FAFAFC !important; }
+    button:disabled { opacity: 0.4; cursor: not-allowed !important; }
+    select, input, button { font-family: inherit; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ─────────────────── MOCK DATA ─────────────────── */
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const FIRST = ["Aisha","Ravi","Maria","Jordan","Wei","Fatima","Diego","Olu","Priya","Nate","Sofia","Kwame","Elena","Marcus","Nina","Yusuf","Grace","Tariq","Lena","Omar","Ingrid","Sam","Zara","Leo","Mei","Carlos","Anya","Idris","Rosa","Kenji","Amara","Victor","Jade","Hassan","Petra","Milo","Sana","Todd","Yara","Ezra"];
+const LAST  = ["Khan","Patel","Garcia","Smith","Chen","Ahmed","Rossi","Adeyemi","Sharma","Brooks","Costa","Mensah","Novak","Reilly","Osei","Farouk","Bennett","Malik","Kowalski","Haddad"];
+const SKILLS = ["Java Full Stack","Data Engineer","DevOps/AWS","QA Automation","React/Node","Salesforce Dev","SAP FICO","Business Analyst","Network Engineer","Scrum Master","Python/ML","Oracle DBA","UI/UX Designer","Cybersecurity Analyst",".NET Developer"];
+const PORTALS_DEFAULT = ["Indeed","Monster","ZipRecruiter","Dice","CareerBuilder","LinkedIn"];
+const COMPANIES = ["Acme Corp","Globex","Initech","Umbrella Health","Stark Industries","Wayne Tech","Hooli","Vandelay Industries","Soylent","Massive Dynamic","Pinnacle Systems","Cyberdyne","Aperture Labs","Wonka Digital","Blue Ridge Bank","Northwind Traders","Contoso","Fabrikam","Volcano Corp","Gringotts Financial"];
+const JD_OPENERS = [
+  "We are looking for an experienced {skill} to join our client's team on a contract basis.",
+  "Our client, {company}, is seeking a skilled {skill} for an immediate long-term engagement.",
+  "Exciting contract opportunity for a {skill} professional with a strong track record.",
+  "{company} has an urgent requirement for a {skill} to support a critical initiative."
+];
+const JD_BODIES = [
+  "The ideal candidate will have hands-on experience delivering production-grade solutions in fast-paced environments, strong communication skills, and the ability to work independently with distributed teams.",
+  "Responsibilities include gathering requirements, designing scalable solutions, collaborating with cross-functional stakeholders, and ensuring on-time delivery of milestones.",
+  "This role requires deep technical expertise, a collaborative mindset, and the flexibility to adapt to shifting priorities across multiple concurrent workstreams.",
+  "Candidate will partner closely with the client's internal engineering and business teams to design, build, and maintain mission-critical systems."
+];
+const JD_CLOSERS = [
+  "Remote-friendly with occasional on-site visits. W2 or C2C accepted.",
+  "This is a 6-12 month contract with strong possibility of extension.",
+  "Local candidates strongly preferred; hybrid schedule available.",
+  "Fully remote engagement; interviews being scheduled this week."
+];
+const STATUS_LIST = ["Applied","Submitted to Client","Interview Scheduled","Offer","Rejected","No Response"];
+const TODAY = "2026-07-03";
+const PAGE_SIZE = 15;
+
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+function fmtIso(d) { return d.toISOString().slice(0, 10); }
+function fmtDisplay(s) {
+  return new Date(s + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+function buildJd(rng, candidate, jobTitle, company) {
+  return pick(rng, JD_OPENERS).replace(/{skill}/g, candidate.skill).replace(/{company}/g, company)
+    + " " + pick(rng, JD_BODIES) + " " + pick(rng, JD_CLOSERS);
+}
+
+function generateData() {
+  const rng = mulberry32(20260703);
+  const candidates = [];
+  for (let i = 0; i < 20; i++) {
+    const name = pick(rng, FIRST) + " " + pick(rng, LAST);
+    candidates.push({
+      id: "c" + i, name, skill: SKILLS[i % SKILLS.length],
+      resumeFile: name.replace(/\s+/g, "_") + "_" + SKILLS[i % SKILLS.length].replace(/[^A-Za-z]/g, "") + "_v" + (1 + (i % 3)) + ".pdf",
+      linkedin: "linkedin.com/in/" + name.toLowerCase().replace(/\s+/g, "-") + "-bench" + (i + 1)
+    });
+  }
+  const recruiters = [];
+  const usedNames = new Set();
+  let fi = 0, li = 0;
+  for (let i = 0; i < 40; i++) {
+    let name;
+    do { name = FIRST[fi % FIRST.length] + " " + LAST[li % LAST.length]; fi++; li += 3; } while (usedNames.has(name));
+    usedNames.add(name);
+    const ac = 2 + Math.floor(rng() * 2);
+    const assigned = new Set();
+    while (assigned.size < ac) assigned.add(Math.floor(rng() * candidates.length));
+    recruiters.push({ id: "r" + i, name, assignedCandidateIds: [...assigned].map(idx => candidates[idx].id), dailyTarget: 3 + Math.floor(rng() * 3) });
+  }
+  const baseDay = new Date("2026-07-03T00:00:00Z");
+  const applications = [];
+  let appId = 0;
+  for (let d = 364; d >= 0; d--) {
+    const date = new Date(baseDay); date.setUTCDate(date.getUTCDate() - d);
+    const dow = date.getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    const dateStr = date.getUTCFullYear() + "-" + pad2(date.getUTCMonth() + 1) + "-" + pad2(date.getUTCDate());
+    for (const rec of recruiters) {
+      if (rng() > 0.92) continue;
+      const n = 2 + Math.floor(rng() * 6);
+      for (let k = 0; k < n; k++) {
+        const isAss = rng() < 0.7;
+        let candidate;
+        if (isAss && rec.assignedCandidateIds.length) {
+          const idx = Math.min(rec.assignedCandidateIds.length - 1, Math.floor(rng() * rec.assignedCandidateIds.length));
+          candidate = candidates.find(c => c.id === rec.assignedCandidateIds[idx]);
+        }
+        if (!candidate) candidate = pick(rng, candidates);
+        const portal = pick(rng, PORTALS_DEFAULT);
+        const company = pick(rng, COMPANIES);
+        const jobTitle = candidate.skill + (rng() < 0.3 ? " Consultant" : " Engineer");
+        const sr = rng();
+        const status = sr < 0.55 ? "Applied" : sr < 0.78 ? "Submitted to Client" : sr < 0.90 ? "Interview Scheduled" : sr < 0.96 ? "Rejected" : sr < 0.99 ? "Offer" : "No Response";
+        applications.push({
+          id: "a" + (appId++), date: dateStr, recruiterId: rec.id,
+          candidateName: candidate.name, resumeFile: candidate.resumeFile, linkedin: candidate.linkedin,
+          portal, company, jobTitle, jobDescription: buildJd(rng, candidate, jobTitle, company),
+          applicationType: rec.assignedCandidateIds.includes(candidate.id) ? "assigned" : "random",
+          status, isSubmission: status !== "Applied" && status !== "No Response"
+        });
+      }
+    }
+  }
+  return { candidates, recruiters, applications, portals: [...PORTALS_DEFAULT] };
+}
+
+function makeLiveEvent(data) {
+  const rng = () => Math.random();
+  const rec = pick(rng, data.recruiters);
+  const isAss = rng() < 0.7 && rec.assignedCandidateIds.length;
+  const candidate = isAss
+    ? (data.candidates.find(c => c.id === rec.assignedCandidateIds[Math.floor(rng() * rec.assignedCandidateIds.length)]) || pick(rng, data.candidates))
+    : pick(rng, data.candidates);
+  const company = pick(rng, COMPANIES);
+  const jobTitle = candidate.skill + (rng() < 0.3 ? " Consultant" : " Engineer");
+  const portal = pick(rng, data.portals.length ? data.portals : PORTALS_DEFAULT);
+  const action = rng() < 0.4 ? "submitted" : "applied for";
+  return {
+    id: "live" + Date.now() + Math.floor(Math.random() * 1000),
+    text: `${rec.name} ${action} ${candidate.name} — ${jobTitle} at ${company} via ${portal}`,
+    createdAt: Date.now()
+  };
+}
+
+/* ─────────────────── HELPERS ─────────────────── */
+function statusColors(status) {
+  if (status === "Offer") return { bg: "#DCFCE7", color: "#15803D" };
+  if (status === "Interview Scheduled") return { bg: "#DBEAFE", color: "#1D4ED8" };
+  if (status === "Submitted to Client") return { bg: "#EDE9FE", color: "#6D28D9" };
+  if (status === "Rejected") return { bg: "#FEE2E2", color: "#B91C1C" };
+  if (status === "No Response") return { bg: "#F1F2F6", color: "#7B8094" };
+  return { bg: "#FEF3C7", color: "#B45309" };
+}
+
+function getRangeBounds(s) {
+  if (s.timeRange === "custom") return { start: s.customStart || "2026-01-01", end: s.customEnd || TODAY };
+  const dMap = { daily: 1, weekly: 7, monthly: 30, sixmonth: 182, yearly: 365 };
+  const days = dMap[s.timeRange] || 30;
+  const d = new Date(TODAY + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - (days - 1));
+  return { start: fmtIso(d), end: TODAY };
+}
+
+/* ─────────────────── APP ─────────────────── */
+function App() {
+  const [state, setRaw] = useState({
+    role: "admin", viewingRecruiterId: null, timeRange: "monthly",
+    customStart: "2026-06-01", customEnd: TODAY,
+    sortCol: "applications", sortDir: "desc",
+    drillRecruiterId: null, logPage: 1,
+    logSearch: "", logPortalFilter: "all", logStatusFilter: "all", logTypeFilter: "all",
+    data: null, manageOpen: false, manageTab: "recruiters",
+    newRecruiterName: "", newRecruiterTarget: "3", newPortalName: "",
+    toast: null, jdModalAppId: null, liveEvents: [], secondsAgo: 0
+  });
+
+  const mountTime = useRef(Date.now());
+  const toastTimer = useRef(null);
+
+  const set = useCallback((patch) => {
+    setRaw(prev => ({ ...prev, ...(typeof patch === "function" ? patch(prev) : patch) }));
+  }, []);
+
+  useEffect(() => {
+    const data = generateData();
+    set({ data, viewingRecruiterId: data.recruiters[0].id });
+
+    const clock = setInterval(() => {
+      setRaw(prev => {
+        const ref = prev.liveEvents.length ? prev.liveEvents[0].createdAt : mountTime.current;
+        return { ...prev, secondsAgo: Math.max(0, Math.round((Date.now() - ref) / 1000)) };
+      });
+    }, 1000);
+
+    const live = setInterval(() => {
+      setRaw(prev => {
+        if (!prev.data) return prev;
+        const ev = makeLiveEvent(prev.data);
+        return { ...prev, liveEvents: [ev, ...prev.liveEvents].slice(0, 8), secondsAgo: 0 };
+      });
+    }, 5000);
+
+    return () => { clearInterval(clock); clearInterval(live); if (toastTimer.current) clearTimeout(toastTimer.current); };
+  }, []);
+
+  const showToast = useCallback((msg) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    set({ toast: msg });
+    toastTimer.current = setTimeout(() => set({ toast: null }), 2600);
+  }, [set]);
+
+  const addRecruiter = useCallback(() => {
+    const name = state.newRecruiterName.trim();
+    if (!name) return;
+    const target = Math.max(1, parseInt(state.newRecruiterTarget, 10) || 3);
+    const cands = state.data.candidates;
+    const assigned = new Set();
+    while (assigned.size < 2 && assigned.size < cands.length) assigned.add(cands[Math.floor(Math.random() * cands.length)].id);
+    const rec = { id: "r" + Date.now(), name, assignedCandidateIds: [...assigned], dailyTarget: target };
+    set(prev => ({ data: { ...prev.data, recruiters: [...prev.data.recruiters, rec] }, newRecruiterName: "", newRecruiterTarget: "3" }));
+    showToast(`Added ${name} to the team`);
+  }, [state.newRecruiterName, state.newRecruiterTarget, state.data, set, showToast]);
+
+  const deleteRecruiter = useCallback((id, name) => {
+    if (!window.confirm(`Remove ${name} and all their application records?`)) return;
+    set(prev => {
+      const recruiters = prev.data.recruiters.filter(r => r.id !== id);
+      const applications = prev.data.applications.filter(a => a.recruiterId !== id);
+      const patch = { data: { ...prev.data, recruiters, applications } };
+      if (prev.viewingRecruiterId === id) patch.viewingRecruiterId = recruiters.length ? recruiters[0].id : null;
+      return patch;
+    });
+    showToast(`Removed ${name}`);
+  }, [set, showToast]);
+
+  const addPortal = useCallback(() => {
+    const name = state.newPortalName.trim();
+    if (!name) return;
+    if (state.data.portals.some(p => p.toLowerCase() === name.toLowerCase())) { showToast(`${name} is already in the portal list`); return; }
+    set(prev => ({ data: { ...prev.data, portals: [...prev.data.portals, name] }, newPortalName: "" }));
+    showToast(`Added ${name} to portal list`);
+  }, [state.newPortalName, state.data, set, showToast]);
+
+  const deletePortal = useCallback((name) => {
+    set(prev => ({
+      data: { ...prev.data, portals: prev.data.portals.filter(p => p !== name) },
+      logPortalFilter: prev.logPortalFilter === name ? "all" : prev.logPortalFilter
+    }));
+    showToast(`Removed ${name} from portal list`);
+  }, [set, showToast]);
+
+  const exportCsv = useCallback((apps, recruiterById) => {
+    const header = ["Date","Recruiter","Candidate","Job Title","Company","Portal","Resume","LinkedIn","Type","Status"];
+    const lines = [header.join(","), ...apps.map(a => [
+      a.date, recruiterById[a.recruiterId]?.name || a.recruiterId,
+      a.candidateName, a.jobTitle, a.company, a.portal, a.resumeFile, a.linkedin, a.applicationType, a.status
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "bench-ops-export.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  }, []);
+
+  /* ── Derived / computed ── */
+  const C = useMemo(() => {
+    const s = state;
+    if (!s.data) return { dataLoaded: false };
+    const { start, end } = getRangeBounds(s);
+    const rangeAll = s.data.applications.filter(a => a.date >= start && a.date <= end);
+    const isAdmin = s.role === "admin";
+    const isRecruiter = s.role === "recruiter";
+
+    const recruiterById = {};
+    s.data.recruiters.forEach(r => recruiterById[r.id] = r);
+
+    const scopedApps = isRecruiter ? rangeAll.filter(a => a.recruiterId === s.viewingRecruiterId) : rangeAll;
+    const totalApps = scopedApps.length;
+    const subApps = scopedApps.filter(a => a.isSubmission);
+    const totalSubs = subApps.length;
+    const subRate = totalApps ? Math.round((totalSubs / totalApps) * 100) : 0;
+    const assignedCount = scopedApps.filter(a => a.applicationType === "assigned").length;
+    const assignedPct = totalApps ? Math.round((assignedCount / totalApps) * 100) : 0;
+    const randomPct = 100 - assignedPct;
+    const activeIds = new Set(scopedApps.map(a => a.recruiterId));
+
+    const kpis = isAdmin ? [
+      { label: "Total applications", value: totalApps.toLocaleString(), sub: `${activeIds.size} active recruiters`, color: "#16181D" },
+      { label: "Client submissions", value: totalSubs.toLocaleString(), sub: `${subRate}% of applications`, color: "#4F46E5" },
+      { label: "Submission rate", value: subRate + "%", sub: "Applied → submitted to client", color: "#16181D" },
+      { label: "Assigned-candidate apps", value: assignedPct + "%", sub: `${assignedCount.toLocaleString()} of ${totalApps.toLocaleString()}`, color: "#16181D" },
+      { label: "Team size", value: s.data.recruiters.length, sub: `${activeIds.size} active this period`, color: "#16181D" }
+    ] : [
+      { label: "My applications", value: totalApps.toLocaleString(), sub: "in selected range", color: "#16181D" },
+      { label: "My submissions", value: totalSubs.toLocaleString(), sub: `${subRate}% of applications`, color: "#4F46E5" },
+      { label: "Submission rate", value: subRate + "%", sub: "Applied → submitted to client", color: "#16181D" },
+      { label: "Assigned-candidate apps", value: assignedPct + "%", sub: `${assignedCount} of ${totalApps}`, color: "#16181D" }
+    ];
+
+    /* trend chart */
+    const dayCount = Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1);
+    const byWeek = dayCount > 45;
+    const buckets = {}, bucketOrder = [];
+    scopedApps.forEach(a => {
+      let key;
+      if (byWeek) {
+        const d = new Date(a.date + "T00:00:00Z"); const ws = new Date(d); ws.setUTCDate(d.getUTCDate() - d.getUTCDay()); key = fmtIso(ws);
+      } else key = a.date;
+      if (!buckets[key]) { buckets[key] = { apps: 0, subs: 0 }; bucketOrder.push(key); }
+      buckets[key].apps++; if (a.isSubmission) buckets[key].subs++;
+    });
+    bucketOrder.sort();
+    const maxVal = Math.max(1, ...bucketOrder.map(k => buckets[k].apps));
+    const trendBars = bucketOrder.slice(-16).map(k => {
+      const b = buckets[k]; const d = new Date(k + "T00:00:00Z");
+      return {
+        label: byWeek ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : d.toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" }),
+        tooltip: `${k}: ${b.apps} apps, ${b.subs} subs`,
+        appH: Math.round((b.apps / maxVal) * 140), subH: Math.round((b.subs / maxVal) * 140)
+      };
+    });
+
+    /* portal bars */
+    const activePortals = s.data.portals || [];
+    const portalUnion = Array.from(new Set([...activePortals, ...scopedApps.map(a => a.portal)]));
+    const pCounts = {}; portalUnion.forEach(p => pCounts[p] = 0); scopedApps.forEach(a => pCounts[a.portal] = (pCounts[a.portal] || 0) + 1);
+    const maxP = Math.max(1, ...Object.values(pCounts));
+    const portalBars = portalUnion.map(p => ({ portal: p, count: pCounts[p], pct: Math.round((pCounts[p] / maxP) * 100) })).sort((a, b) => b.count - a.count);
+
+    /* team table */
+    let teamRows = [];
+    if (isAdmin) {
+      teamRows = s.data.recruiters.map(r => {
+        const apps = rangeAll.filter(a => a.recruiterId === r.id);
+        const rsubs = apps.filter(a => a.isSubmission);
+        const rate = apps.length ? Math.round((rsubs.length / apps.length) * 100) : 0;
+        const ass = apps.filter(a => a.applicationType === "assigned").length;
+        const pc = {}; apps.forEach(a => pc[a.portal] = (pc[a.portal] || 0) + 1);
+        let topPortal = "—", topC = 0; Object.entries(pc).forEach(([p, c]) => { if (c > topC) { topPortal = p; topC = c; } });
+        const last = apps.length ? apps.reduce((m, a) => a.date > m ? a.date : m, apps[0].date) : "—";
+        return {
+          id: r.id, name: r.name, applications: apps.length, submissions: rsubs.length,
+          rate: rate + "%", rateColor: rate >= 40 ? "#15803D" : rate >= 20 ? "#B45309" : "#B91C1C",
+          assignedPct: (apps.length ? Math.round((ass / apps.length) * 100) : 0) + "%",
+          topPortal, lastActive: last === "—" ? "—" : fmtDisplay(last),
+          _apps: apps.length, _subs: rsubs.length, _rate: rate
+        };
+      });
+      const sortKey = s.sortCol === "applications" ? "_apps" : s.sortCol === "submissions" ? "_subs" : s.sortCol === "rate" ? "_rate" : "name";
+      const dir = s.sortDir === "asc" ? 1 : -1;
+      teamRows.sort((a, b) => sortKey === "name" ? dir * a.name.localeCompare(b.name) : dir === 1 ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]);
+    }
+
+    /* recruiter target */
+    let myTarget = 0, myActual = 0, targetPct = 0, targetBarColor = "#4F46E5";
+    if (isRecruiter) {
+      const rec = recruiterById[s.viewingRecruiterId];
+      let wdCount = 0;
+      for (let d = new Date(start + "T00:00:00Z"), d1 = new Date(end + "T00:00:00Z"); d <= d1; d.setUTCDate(d.getUTCDate() + 1)) {
+        const dw = d.getUTCDay(); if (dw !== 0 && dw !== 6) wdCount++;
+      }
+      myTarget = (rec ? rec.dailyTarget : 3) * wdCount;
+      myActual = totalSubs;
+      targetPct = myTarget ? Math.min(100, Math.round((myActual / myTarget) * 100)) : 0;
+      targetBarColor = targetPct >= 100 ? "#15803D" : targetPct >= 60 ? "#4F46E5" : "#B45309";
+    }
+
+    /* submission log */
+    let logSource = scopedApps;
+    if (s.logPortalFilter !== "all") logSource = logSource.filter(a => a.portal === s.logPortalFilter);
+    if (s.logStatusFilter !== "all") logSource = logSource.filter(a => a.status === s.logStatusFilter);
+    if (s.logTypeFilter !== "all") logSource = logSource.filter(a => a.applicationType === s.logTypeFilter);
+    if (s.logSearch.trim()) {
+      const q = s.logSearch.trim().toLowerCase();
+      logSource = logSource.filter(a => a.candidateName.toLowerCase().includes(q) || a.company.toLowerCase().includes(q) || a.jobTitle.toLowerCase().includes(q));
+    }
+    logSource = [...logSource].sort((a, b) => a.date < b.date ? 1 : -1);
+    const totalPages = Math.max(1, Math.ceil(logSource.length / PAGE_SIZE));
+    const page = Math.min(s.logPage, totalPages);
+    const logRows = logSource.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(a => {
+      const sc = statusColors(a.status);
+      return { ...a, date: fmtDisplay(a.date), recruiterName: recruiterById[a.recruiterId]?.name || a.recruiterId,
+        jobCompany: `${a.jobTitle} — ${a.company}`,
+        typeLabel: a.applicationType === "assigned" ? "Assigned" : "Random",
+        typeBg: a.applicationType === "assigned" ? "#EDE9FE" : "#F1F2F6",
+        typeColor: a.applicationType === "assigned" ? "#6D28D9" : "#565A6B",
+        statusBg: sc.bg, statusColor: sc.color };
+    });
+
+    /* drilldown */
+    let drillData = null;
+    if (isAdmin && s.drillRecruiterId) {
+      const rec = recruiterById[s.drillRecruiterId];
+      const dApps = rangeAll.filter(a => a.recruiterId === s.drillRecruiterId);
+      const dSubs = dApps.filter(a => a.isSubmission);
+      const dRate = dApps.length ? Math.round((dSubs.length / dApps.length) * 100) : 0;
+      const dAss = dApps.filter(a => a.applicationType === "assigned").length;
+      drillData = {
+        name: rec?.name || "",
+        kpis: [
+          { label: "Applications", value: dApps.length, color: "#16181D" },
+          { label: "Submissions", value: dSubs.length, color: "#4F46E5" },
+          { label: "Submission rate", value: dRate + "%", color: "#16181D" },
+          { label: "Assigned %", value: (dApps.length ? Math.round((dAss / dApps.length) * 100) : 0) + "%", color: "#16181D" }
+        ],
+        total: dApps.length,
+        rows: [...dApps].sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 30).map(a => {
+          const sc = statusColors(a.status);
+          return { date: fmtDisplay(a.date), candidateName: a.candidateName, jobCompany: `${a.jobTitle} — ${a.company}`, portal: a.portal, status: a.status, statusBg: sc.bg, statusColor: sc.color };
+        })
+      };
+    }
+
+    /* JD modal */
+    let jdModalData = null;
+    if (s.jdModalAppId) {
+      const app = s.data.applications.find(a => a.id === s.jdModalAppId);
+      if (app) jdModalData = { jobCompany: `${app.jobTitle} — ${app.company}`, candidateName: app.candidateName, portal: app.portal, date: fmtDisplay(app.date), description: app.jobDescription };
+    }
+
+    /* live events */
+    const liveEventsDisplay = s.liveEvents.map(ev => {
+      const secs = Math.max(0, Math.round((Date.now() - ev.createdAt) / 1000));
+      return { id: ev.id, text: ev.text, ago: secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m` };
+    });
+
+    const rangeLabelMap = { daily: "Today", weekly: "Last 7 days", monthly: "Last 30 days", sixmonth: "Last 6 months", yearly: "Last 12 months", custom: `${start} to ${end}` };
+
+    return {
+      dataLoaded: true, isAdmin, isRecruiter, start, end,
+      rangeLabel: rangeLabelMap[s.timeRange] || "",
+      kpis, trendBars, trendSubtitle: byWeek ? "Weekly buckets" : "Daily buckets",
+      assignedPct, randomPct, portalBars, portalUnion,
+      teamRows, teamCount: s.data.recruiters.length,
+      myTarget, myActual, targetPct, targetBarColor,
+      logRows, totalPages, page, logSource,
+      logCountLabel: `Showing ${logSource.length ? (page - 1) * PAGE_SIZE + 1 : 0}–${Math.min(page * PAGE_SIZE, logSource.length)} of ${logSource.length}`,
+      drillData, jdModalData, recruiterById, scopedApps,
+      liveEventsDisplay,
+      manageRecruiters: s.data.recruiters.map(r => ({ ...r, assignedCount: r.assignedCandidateIds.length })),
+      managePortals: s.data.portals || [],
+      recruiterOptions: s.data.recruiters,
+      portalFilterOptions: ["all", ...portalUnion],
+      statusFilterOptions: ["all", ...STATUS_LIST],
+    };
+  }, [state]);
+
+  if (!C.dataLoaded) {
+    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", color: "#7B8094", fontSize: 14 }}>Loading data…</div>;
+  }
+
+  const s = state;
+  const { isAdmin, isRecruiter, rangeLabel, kpis, trendBars, trendSubtitle, assignedPct, randomPct, portalBars, portalUnion, teamRows, teamCount, myTarget, myActual, targetPct, targetBarColor, logRows, totalPages, page, logSource, logCountLabel, drillData, jdModalData, recruiterById, scopedApps, liveEventsDisplay, manageRecruiters, managePortals, recruiterOptions, portalFilterOptions, statusFilterOptions } = C;
+
+  const tabBtn = (active) => ({
+    height: 28, padding: "0 14px", borderRadius: 6, border: "none", fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+    background: active ? "white" : "transparent", color: active ? "#4F46E5" : "#7B8094",
+    boxShadow: active ? "0 1px 2px rgba(16,24,40,0.08)" : "none"
+  });
+
+  const sortToggle = (col, defaultDir) => {
+    const same = s.sortCol === col;
+    return { sortCol: col, sortDir: same && s.sortDir === defaultDir ? (defaultDir === "asc" ? "desc" : "asc") : defaultDir };
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#F3F4F7", color: "#16181D" }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#FFFFFF", borderBottom: "1px solid #E7E9EF" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: "#4F46E5", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 15 }}>BO</div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1 }}>Bench Ops Tracker</div>
+              <div style={{ fontSize: 12, color: "#7B8094", lineHeight: 1.3 }}>Application &amp; submission performance</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", background: "#F0F1F5", borderRadius: 8, padding: 3 }}>
+              <button style={tabBtn(isAdmin)} onClick={() => set({ role: "admin", logPage: 1, drillRecruiterId: null })}>Admin view</button>
+              <button style={tabBtn(isRecruiter)} onClick={() => set({ role: "recruiter", logPage: 1, drillRecruiterId: null })}>My view</button>
+            </div>
+            {isRecruiter && (
+              <select value={s.viewingRecruiterId || ""} onChange={e => set({ viewingRecruiterId: e.target.value, logPage: 1 })}
+                style={{ height: 34, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", padding: "0 10px", fontSize: 13, color: "#16181D", fontWeight: 600 }}>
+                {recruiterOptions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            )}
+            {isAdmin && (
+              <button onClick={() => set({ manageOpen: true, manageTab: "recruiters" })}
+                style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, fontWeight: 600, color: "#383B49", cursor: "pointer" }}>
+                Manage team &amp; portals
+              </button>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", height: 34, borderRadius: 8, background: "#F0FDF4" }}>
+              <span className="pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: "#15803D" }}>LIVE</span>
+              <span style={{ fontSize: 11.5, color: "#4D7C5F" }}>· updated {s.secondsAgo}s ago</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px 14px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"],["sixmonth","6-Month"],["yearly","Yearly"],["custom","Custom"]].map(([key, label]) => {
+            const active = s.timeRange === key;
+            return (
+              <button key={key} onClick={() => set({ timeRange: key, logPage: 1 })}
+                style={{ height: 32, padding: "0 14px", borderRadius: 8, border: `1px solid ${active ? "#4F46E5" : "#DDE0E8"}`, background: active ? "#4F46E5" : "white", color: active ? "white" : "#383B49", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                {label}
+              </button>
+            );
+          })}
+          {s.timeRange === "custom" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 6 }}>
+              <input type="date" value={s.customStart} onChange={e => set({ customStart: e.target.value, logPage: 1 })} style={{ height: 30, borderRadius: 6, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12 }} />
+              <span style={{ color: "#A1A5B3", fontSize: 12 }}>to</span>
+              <input type="date" value={s.customEnd} onChange={e => set({ customEnd: e.target.value, logPage: 1 })} style={{ height: 30, borderRadius: 6, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12 }} />
+            </div>
+          )}
+          <div style={{ marginLeft: "auto", fontSize: 12, color: "#7B8094" }}>{rangeLabel}</div>
+          {isAdmin && (
+            <button onClick={() => exportCsv(scopedApps, recruiterById)}
+              style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, fontWeight: 600, color: "#383B49", cursor: "pointer" }}>
+              Export CSV
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "28px 32px 60px" }}>
+
+        {/* Live ticker */}
+        <div style={{ background: "white", borderRadius: 12, border: "1px solid #ECEDF2", padding: "14px 22px", marginBottom: 22, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span className="pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "#383B49" }}>Live activity</div>
+            <div style={{ fontSize: 11.5, color: "#A1A5B3" }}>simulated real-time feed, not counted in the totals below</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 118, overflowY: "auto" }}>
+            {liveEventsDisplay.length === 0
+              ? <div style={{ fontSize: 12, color: "#A1A5B3" }}>Waiting for first event…</div>
+              : liveEventsDisplay.map(ev => (
+                <div key={ev.id} className="ticker-row" style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 12.5, color: "#383B49" }}>
+                  <span style={{ color: "#A1A5B3", fontSize: 11, width: 46, flexShrink: 0 }}>{ev.ago}</span>
+                  <span>{ev.text}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* KPI cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 22 }}>
+          {kpis.map((kpi, i) => (
+            <div key={i} style={{ background: "white", borderRadius: 12, padding: "18px 20px", boxShadow: "0 1px 2px rgba(16,24,40,0.04)", border: "1px solid #ECEDF2" }}>
+              <div style={{ fontSize: 12.5, color: "#7B8094", fontWeight: 600, marginBottom: 8 }}>{kpi.label}</div>
+              <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", color: kpi.color }}>{kpi.value}</div>
+              <div style={{ fontSize: 12, color: "#A1A5B3", marginTop: 4 }}>{kpi.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Charts row */}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 22 }}>
+          {/* Trend */}
+          <div style={{ background: "white", borderRadius: 12, padding: "20px 22px", border: "1px solid #ECEDF2" }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>Applications vs. submissions over time</div>
+            <div style={{ fontSize: 12, color: "#A1A5B3", marginBottom: 14 }}>{trendSubtitle}</div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 160, paddingTop: 6 }}>
+              {trendBars.length === 0
+                ? <div style={{ width: "100%", textAlign: "center", color: "#A1A5B3", fontSize: 13 }}>No data in range</div>
+                : trendBars.map((b, i) => (
+                  <div key={i} title={b.tooltip} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", gap: 3 }}>
+                    <div style={{ width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 2, height: "100%" }}>
+                      <div style={{ width: "45%", background: "#C7CBF7", borderRadius: "3px 3px 0 0", height: b.appH, minHeight: 2 }} />
+                      <div style={{ width: "45%", background: "#4F46E5", borderRadius: "3px 3px 0 0", height: b.subH, minHeight: 2 }} />
+                    </div>
+                    <div style={{ fontSize: 10, color: "#A1A5B3", whiteSpace: "nowrap" }}>{b.label}</div>
+                  </div>
+                ))}
+            </div>
+            <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#7B8094" }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "#C7CBF7", display: "inline-block" }} />Applications</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#7B8094" }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "#4F46E5", display: "inline-block" }} />Submissions</div>
+            </div>
+          </div>
+          {/* Assigned + portals */}
+          <div style={{ background: "white", borderRadius: 12, padding: "20px 22px", border: "1px solid #ECEDF2" }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>Assigned vs. random</div>
+            <div style={{ fontSize: 12, color: "#A1A5B3", marginBottom: 16 }}>Applied for own bench candidate vs. any other</div>
+            <div style={{ display: "flex", height: 14, borderRadius: 7, overflow: "hidden", marginBottom: 10 }}>
+              <div style={{ width: assignedPct + "%", background: "#4F46E5" }} />
+              <div style={{ width: randomPct + "%", background: "#E4E6EF" }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "#383B49", marginBottom: 18 }}>
+              <span>Assigned candidate {assignedPct}%</span><span>Random {randomPct}%</span>
+            </div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>By job portal</div>
+            {portalBars.map((p, i) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#383B49", marginBottom: 3 }}>
+                  <span>{p.portal}</span><span style={{ color: "#A1A5B3" }}>{p.count}</span>
+                </div>
+                <div style={{ background: "#F0F1F5", borderRadius: 4, height: 6 }}>
+                  <div style={{ background: "#7B78E8", width: p.pct + "%", height: "100%", borderRadius: 4 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Admin: team table */}
+        {isAdmin && (
+          <div style={{ background: "white", borderRadius: 12, border: "1px solid #ECEDF2", overflow: "hidden", marginBottom: 22 }}>
+            <div style={{ padding: "18px 22px", borderBottom: "1px solid #ECEDF2", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 14.5, fontWeight: 700 }}>Team performance</div>
+                <div style={{ fontSize: 12, color: "#A1A5B3", marginTop: 2 }}>Click a row for that recruiter's submission log</div>
+              </div>
+              <div style={{ fontSize: 12, color: "#A1A5B3" }}>{teamCount} recruiters</div>
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#FAFAFC" }}>
+                    <th onClick={() => set(sortToggle("name","asc"))} style={{ textAlign: "left", padding: "10px 22px", color: "#7B8094", fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+                      Recruiter {s.sortCol === "name" ? (s.sortDir === "asc" ? "↑" : "↓") : ""}
+                    </th>
+                    <th onClick={() => set(sortToggle("applications","desc"))} style={{ textAlign: "right", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+                      Applications {s.sortCol === "applications" ? (s.sortDir === "asc" ? "↑" : "↓") : ""}
+                    </th>
+                    <th onClick={() => set(sortToggle("submissions","desc"))} style={{ textAlign: "right", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+                      Submissions {s.sortCol === "submissions" ? (s.sortDir === "asc" ? "↑" : "↓") : ""}
+                    </th>
+                    <th onClick={() => set(sortToggle("rate","desc"))} style={{ textAlign: "right", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+                      Sub. rate {s.sortCol === "rate" ? (s.sortDir === "asc" ? "↑" : "↓") : ""}
+                    </th>
+                    <th style={{ textAlign: "right", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Assigned %</th>
+                    <th style={{ textAlign: "left", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Top portal</th>
+                    <th style={{ textAlign: "left", padding: "10px 22px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Last active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamRows.map(row => (
+                    <tr key={row.id} className="team-row" onClick={() => set({ drillRecruiterId: row.id })} style={{ borderTop: "1px solid #F0F1F5", cursor: "pointer" }}>
+                      <td style={{ padding: "11px 22px", fontWeight: 600, color: "#16181D" }}>{row.name}</td>
+                      <td style={{ padding: "11px 14px", textAlign: "right" }}>{row.applications}</td>
+                      <td style={{ padding: "11px 14px", textAlign: "right" }}>{row.submissions}</td>
+                      <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 600, color: row.rateColor }}>{row.rate}</td>
+                      <td style={{ padding: "11px 14px", textAlign: "right", color: "#7B8094" }}>{row.assignedPct}</td>
+                      <td style={{ padding: "11px 14px", color: "#7B8094" }}>{row.topPortal}</td>
+                      <td style={{ padding: "11px 22px", color: "#7B8094" }}>{row.lastActive}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Recruiter: target vs actual */}
+        {isRecruiter && (
+          <div style={{ background: "white", borderRadius: 12, border: "1px solid #ECEDF2", padding: "20px 22px", marginBottom: 22 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 14 }}>Target vs. actual submissions — {rangeLabel}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ flex: 1, background: "#F0F1F5", borderRadius: 8, height: 20, overflow: "hidden" }}>
+                <div style={{ background: targetBarColor, width: targetPct + "%", height: "100%", transition: "width 0.4s" }} />
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: "#383B49" }}>{myActual} / {myTarget} target</div>
+            </div>
+          </div>
+        )}
+
+        {/* Submission log */}
+        <div style={{ background: "white", borderRadius: 12, border: "1px solid #ECEDF2", overflow: "hidden" }}>
+          <div style={{ padding: "18px 22px", borderBottom: "1px solid #ECEDF2", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 14.5, fontWeight: 700 }}>{isAdmin ? "All submissions & applications" : "My submission log"}</div>
+              <div style={{ fontSize: 12, color: "#A1A5B3", marginTop: 2 }}>{logSource.length.toLocaleString()} record{logSource.length === 1 ? "" : "s"} in range</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input placeholder="Search candidate or company…" value={s.logSearch} onChange={e => set({ logSearch: e.target.value, logPage: 1 })}
+                style={{ height: 32, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 10px", fontSize: 12.5, width: 200 }} />
+              <select value={s.logPortalFilter} onChange={e => set({ logPortalFilter: e.target.value, logPage: 1 })} style={{ height: 32, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12.5 }}>
+                {portalFilterOptions.map(opt => <option key={opt} value={opt}>{opt === "all" ? "All portals" : opt}</option>)}
+              </select>
+              <select value={s.logStatusFilter} onChange={e => set({ logStatusFilter: e.target.value, logPage: 1 })} style={{ height: 32, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12.5 }}>
+                {statusFilterOptions.map(opt => <option key={opt} value={opt}>{opt === "all" ? "All statuses" : opt}</option>)}
+              </select>
+              <select value={s.logTypeFilter} onChange={e => set({ logTypeFilter: e.target.value, logPage: 1 })} style={{ height: 32, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12.5 }}>
+                <option value="all">All types</option>
+                <option value="assigned">Assigned</option>
+                <option value="random">Random</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: "#FAFAFC" }}>
+                  <th style={{ textAlign: "left", padding: "10px 22px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Date</th>
+                  {isAdmin && <th style={{ textAlign: "left", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Recruiter</th>}
+                  {[["Candidate","14px"],["Job title / company","14px"],["Portal","14px"],["Resume used","14px"],["LinkedIn used","14px"],["Type","14px"],["Status","14px"],["Job desc.","22px"]].map(([h,p]) => (
+                    <th key={h} style={{ textAlign: "left", padding: `10px ${p}`, color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {logRows.map((row, i) => (
+                  <tr key={row.id || i} style={{ borderTop: "1px solid #F0F1F5" }}>
+                    <td style={{ padding: "10px 22px", color: "#383B49", whiteSpace: "nowrap" }}>{row.date}</td>
+                    {isAdmin && <td style={{ padding: "10px 14px", color: "#383B49", whiteSpace: "nowrap" }}>{row.recruiterName}</td>}
+                    <td style={{ padding: "10px 14px", color: "#383B49", whiteSpace: "nowrap" }}>{row.candidateName}</td>
+                    <td style={{ padding: "10px 14px", color: "#383B49", whiteSpace: "nowrap" }}>{row.jobCompany}</td>
+                    <td style={{ padding: "10px 14px", color: "#7B8094", whiteSpace: "nowrap" }}>{row.portal}</td>
+                    <td style={{ padding: "10px 14px", color: "#7B8094", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{row.resumeFile}</td>
+                    <td style={{ padding: "10px 14px", color: "#7B8094", whiteSpace: "nowrap", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>{row.linkedin}</td>
+                    <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: row.typeBg, color: row.typeColor }}>{row.typeLabel}</span>
+                    </td>
+                    <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: row.statusBg, color: row.statusColor }}>{row.status}</span>
+                    </td>
+                    <td style={{ padding: "10px 22px", whiteSpace: "nowrap" }}>
+                      <button onClick={() => set({ jdModalAppId: row.id })} style={{ height: 26, padding: "0 10px", borderRadius: 6, border: "1px solid #DDE0E8", background: "#FAFAFC", fontSize: 11.5, fontWeight: 600, color: "#4F46E5", cursor: "pointer" }}>View</button>
+                    </td>
+                  </tr>
+                ))}
+                {logRows.length === 0 && (
+                  <tr><td colSpan={isAdmin ? 10 : 9} style={{ padding: "24px 22px", textAlign: "center", color: "#A1A5B3", fontSize: 13 }}>No records match your filters.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: "14px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #ECEDF2" }}>
+            <div style={{ fontSize: 12, color: "#A1A5B3" }}>{logCountLabel}</div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button onClick={() => set({ logPage: Math.max(1, page - 1) })} disabled={page <= 1} style={{ height: 30, padding: "0 12px", borderRadius: 7, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, cursor: "pointer", color: "#383B49" }}>Prev</button>
+              <div style={{ fontSize: 12.5, color: "#7B8094", padding: "0 4px" }}>Page {page} / {totalPages}</div>
+              <button onClick={() => set({ logPage: Math.min(totalPages, page + 1) })} disabled={page >= totalPages} style={{ height: 30, padding: "0 12px", borderRadius: 7, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, cursor: "pointer", color: "#383B49" }}>Next</button>
+            </div>
+          </div>
+        </div>
+
+      </div>{/* end main content */}
+
+      {/* ── DRILLDOWN MODAL ── */}
+      {drillData && (
+        <div onClick={() => set({ drillRecruiterId: null })} style={{ position: "fixed", inset: 0, background: "rgba(16,20,30,0.45)", zIndex: 40, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflowY: "auto" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#F3F4F7", borderRadius: 14, width: "100%", maxWidth: 900, overflow: "hidden" }}>
+            <div style={{ background: "white", padding: "20px 26px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ECEDF2" }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{drillData.name}</div>
+                <div style={{ fontSize: 12.5, color: "#A1A5B3", marginTop: 2 }}>{rangeLabel} performance detail</div>
+              </div>
+              <button onClick={() => set({ drillRecruiterId: null })} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", cursor: "pointer", fontSize: 15, color: "#7B8094" }}>✕</button>
+            </div>
+            <div style={{ padding: "20px 26px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+              {drillData.kpis.map((kpi, i) => (
+                <div key={i} style={{ background: "white", borderRadius: 10, padding: "14px 16px", border: "1px solid #ECEDF2" }}>
+                  <div style={{ fontSize: 11.5, color: "#7B8094", fontWeight: 600, marginBottom: 6 }}>{kpi.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: kpi.color }}>{kpi.value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "0 26px 26px" }}>
+              <div style={{ background: "white", borderRadius: 10, border: "1px solid #ECEDF2", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ background: "#FAFAFC" }}>
+                      {["Date","Candidate","Job / company","Portal","Status"].map((h, i) => (
+                        <th key={h} style={{ textAlign: "left", padding: i === 0 || i === 4 ? "8px 16px" : "8px 12px", color: "#7B8094", fontWeight: 600, fontSize: 11.5 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillData.rows.map((row, i) => (
+                      <tr key={i} style={{ borderTop: "1px solid #F0F1F5" }}>
+                        <td style={{ padding: "9px 16px", whiteSpace: "nowrap", color: "#383B49" }}>{row.date}</td>
+                        <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: "#383B49" }}>{row.candidateName}</td>
+                        <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: "#383B49" }}>{row.jobCompany}</td>
+                        <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: "#7B8094" }}>{row.portal}</td>
+                        <td style={{ padding: "9px 16px", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: row.statusBg, color: row.statusColor }}>{row.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: 11.5, color: "#A1A5B3", marginTop: 8 }}>Showing most recent {drillData.rows.length} of {drillData.total} records in range.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── JD MODAL ── */}
+      {jdModalData && (
+        <div onClick={() => set({ jdModalAppId: null })} style={{ position: "fixed", inset: 0, background: "rgba(16,20,30,0.45)", zIndex: 45, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "white", borderRadius: 14, width: "100%", maxWidth: 560, maxHeight: "80vh", overflowY: "auto" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #ECEDF2", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{jdModalData.jobCompany}</div>
+                <div style={{ fontSize: 12.5, color: "#A1A5B3", marginTop: 4 }}>{jdModalData.candidateName} · {jdModalData.portal} · {jdModalData.date}</div>
+              </div>
+              <button onClick={() => set({ jdModalAppId: null })} style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", cursor: "pointer", fontSize: 14, color: "#7B8094" }}>✕</button>
+            </div>
+            <div style={{ padding: "20px 24px", fontSize: 13.5, lineHeight: 1.6, color: "#383B49" }}>{jdModalData.description}</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MANAGE MODAL ── */}
+      {s.manageOpen && (
+        <div onClick={() => set({ manageOpen: false })} style={{ position: "fixed", inset: 0, background: "rgba(16,20,30,0.45)", zIndex: 45, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflowY: "auto" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#F3F4F7", borderRadius: 14, width: "100%", maxWidth: 620, overflow: "hidden" }}>
+            <div style={{ background: "white", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ECEDF2" }}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>Manage team &amp; portals</div>
+              <button onClick={() => set({ manageOpen: false })} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", cursor: "pointer", fontSize: 14, color: "#7B8094" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 4, padding: "14px 24px 0" }}>
+              {[["recruiters", `Recruiters (${s.data?.recruiters?.length || 0})`], ["portals", `Portals (${s.data?.portals?.length || 0})`]].map(([tab, label]) => (
+                <button key={tab} onClick={() => set({ manageTab: tab })}
+                  style={{ height: 30, padding: "0 14px", borderRadius: "7px 7px 0 0", border: "none", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: s.manageTab === tab ? "#F3F4F7" : "transparent", color: s.manageTab === tab ? "#16181D" : "#7B8094" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {s.manageTab === "recruiters" && (
+              <div style={{ padding: "16px 24px 24px" }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                  <input placeholder="New recruiter name" value={s.newRecruiterName} onChange={e => set({ newRecruiterName: e.target.value })}
+                    onKeyDown={e => e.key === "Enter" && addRecruiter()}
+                    style={{ flex: 1, height: 34, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 10px", fontSize: 12.5 }} />
+                  <input type="number" min="1" max="10" placeholder="Daily target" value={s.newRecruiterTarget} onChange={e => set({ newRecruiterTarget: e.target.value })}
+                    style={{ width: 110, height: 34, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 10px", fontSize: 12.5 }} />
+                  <button onClick={addRecruiter} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "none", background: "#4F46E5", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Add</button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+                  {manageRecruiters.map(r => (
+                    <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "white", border: "1px solid #ECEDF2", borderRadius: 8, padding: "9px 14px" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#16181D" }}>{r.name}</div>
+                        <div style={{ fontSize: 11.5, color: "#A1A5B3" }}>Target {r.dailyTarget}/day · {r.assignedCount} assigned candidates</div>
+                      </div>
+                      <button onClick={() => deleteRecruiter(r.id, r.name)} style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", cursor: "pointer", fontSize: 13 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {s.manageTab === "portals" && (
+              <div style={{ padding: "16px 24px 24px" }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                  <input placeholder="New portal name" value={s.newPortalName} onChange={e => set({ newPortalName: e.target.value })}
+                    onKeyDown={e => e.key === "Enter" && addPortal()}
+                    style={{ flex: 1, height: 34, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 10px", fontSize: 12.5 }} />
+                  <button onClick={addPortal} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "none", background: "#4F46E5", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Add</button>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {managePortals.map(p => (
+                    <div key={p} style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #ECEDF2", borderRadius: 999, padding: "6px 8px 6px 14px" }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: "#383B49" }}>{p}</span>
+                      <button onClick={() => deletePortal(p)} style={{ width: 20, height: 20, borderRadius: "50%", border: "none", background: "#F1F2F6", color: "#7B8094", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TOAST ── */}
+      {s.toast && (
+        <div className="toast-anim" style={{ position: "fixed", bottom: 24, right: 24, background: "#16181D", color: "white", padding: "12px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.2)", zIndex: 60 }}>
+          {s.toast}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
