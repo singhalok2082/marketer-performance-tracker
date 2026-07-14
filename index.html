@@ -87,18 +87,28 @@ function generateData() {
       linkedin: "linkedin.com/in/" + name.toLowerCase().replace(/\s+/g, "-") + "-bench" + (i + 1)
     });
   }
-  const recruiters = [];
-  const usedNames = new Set();
-  let fi = 0, li = 0;
-  for (let i = 0; i < 40; i++) {
-    let name;
-    do { name = FIRST[fi % FIRST.length] + " " + LAST[li % LAST.length]; fi++; li += 3; } while (usedNames.has(name));
-    usedNames.add(name);
+  const TEAM = [
+    "Aashima Soni",
+    "Adarsh Kaushal",
+    "Ayush Singh",
+    "Arpeet Sahoo",
+    "Sakshi Jaiswal",
+    "Karishma Sankhala",
+    "Trupti Sudheerkumar Nair",
+    "Eureka Baranwal",
+    "Ishita Verma",
+    "Mohit Nilesh Borole",
+    "Pallavi Bharti",
+    "Sumit Rameshbhai Gangavati",
+    "Himanshu Malviya",
+    "Chandramani Pillay"
+  ];
+  const recruiters = TEAM.map((name, i) => {
     const ac = 2 + Math.floor(rng() * 2);
     const assigned = new Set();
     while (assigned.size < ac) assigned.add(Math.floor(rng() * candidates.length));
-    recruiters.push({ id: "r" + i, name, assignedCandidateIds: [...assigned].map(idx => candidates[idx].id), dailyTarget: 3 + Math.floor(rng() * 3) });
-  }
+    return { id: "r" + i, name, assignedCandidateIds: [...assigned].map(idx => candidates[idx].id), dailyTarget: 3 + Math.floor(rng() * 3) };
+  });
   const baseDay = new Date("2026-07-03T00:00:00Z");
   const applications = [];
   let appId = 0;
@@ -507,6 +517,13 @@ function App() {
               <span className="pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
               <span style={{ fontSize: 11.5, fontWeight: 700, color: "#15803D" }}>LIVE</span>
               <span style={{ fontSize: 11.5, color: "#4D7C5F" }}>· updated {s.secondsAgo}s ago</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 10, borderLeft: "1px solid #E7E9EF" }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#4F46E5", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 11, flexShrink: 0 }}>AK</div>
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#16181D", lineHeight: 1.2, whiteSpace: "nowrap" }}>Alok Kumar Singh</div>
+                <div style={{ fontSize: 11, color: "#7B8094", lineHeight: 1.2 }}>Admin</div>
+              </div>
             </div>
           </div>
         </div>
