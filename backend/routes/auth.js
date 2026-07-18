@@ -94,13 +94,20 @@ router.post("/login", loginLimiter, async (req, res) => {
     status: "success",
   }).then(() => {}).catch(e => console.warn("Login log skipped:", e.message));
 
-  res.cookie("token", token, { httpOnly: true, maxAge: 8 * 60 * 60 * 1000 });
+  const isProd = process.env.NODE_ENV === "production";
+  res.cookie("token", token, {
+    httpOnly: true,
+    maxAge: 8 * 60 * 60 * 1000,
+    sameSite: isProd ? "none" : "lax",
+    secure: isProd,
+  });
   res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role }, token });
 });
 
 router.post("/logout", requireAuth, async (req, res) => {
   await supabase.from("sessions").update({ is_active: false }).eq("session_id", req.user.sessionId);
-  res.clearCookie("token");
+  const isProd = process.env.NODE_ENV === "production";
+  res.clearCookie("token", { sameSite: isProd ? "none" : "lax", secure: isProd });
   res.json({ ok: true });
 });
 
