@@ -4,6 +4,12 @@ import { motion, useInView } from "framer-motion";
 import { ArrowRight, ArrowUpRight, Link2, FileText, Briefcase, TrendingUp } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
+import Particles from "../components/landing/Particles";
+
+const floatIcon = (i = 0) => ({
+  animate: { y: [0, -10, 0] },
+  transition: { duration: 3 + (i % 3) * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 },
+});
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 32 },
@@ -17,8 +23,9 @@ function initials(name = "") { return name.split(" ").map(w => w[0]).slice(0, 2)
 function GlowBackdrop() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute -top-1/4 -left-1/4 w-[70%] h-[70%] rounded-full bg-indigo-500/10 blur-[120px]" style={{ animation: "lgDrift 18s ease-in-out infinite" }} />
-      <div className="absolute -bottom-1/4 -right-1/4 w-[70%] h-[70%] rounded-full bg-orange-500/10 blur-[120px]" style={{ animation: "lgDrift 22s ease-in-out infinite reverse" }} />
+      <div className="absolute -top-1/4 -left-1/4 w-[70%] h-[70%] rounded-full bg-indigo-500/20 blur-[100px]" style={{ animation: "lgDrift 14s ease-in-out infinite" }} />
+      <div className="absolute -bottom-1/4 -right-1/4 w-[70%] h-[70%] rounded-full bg-orange-500/20 blur-[100px]" style={{ animation: "lgDrift 17s ease-in-out infinite reverse" }} />
+      <Particles count={70} />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black" />
     </div>
   );
@@ -124,7 +131,10 @@ export default function Landing() {
 
         <div className="relative z-10 flex justify-center gap-3 pb-10">
           {["14 Managers", "Live Sync", "Secure by Design"].map(t => (
-            <span key={t} className="liquid-glass rounded-full px-4 py-2 text-white/70 text-xs font-medium">{t}</span>
+            <span key={t} className="liquid-glass rounded-full px-4 py-2 text-white/70 text-xs font-medium flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse" />
+              {t}
+            </span>
           ))}
         </div>
       </section>
@@ -142,12 +152,15 @@ export default function Landing() {
       {/* ═══ FEATURED PRODUCT ═══ */}
       <section id="features" className="bg-black pt-6 md:pt-10 pb-24 md:pb-32 px-6 overflow-hidden">
         <motion.div {...fadeUp(0)} className="max-w-6xl mx-auto rounded-3xl overflow-hidden relative liquid-glass" style={{ aspectRatio: "16/9" }}>
-          <div className="absolute inset-0 flex items-center justify-center p-10" style={{ background: "radial-gradient(ellipse at 30% 30%, rgba(99,102,241,0.18), transparent 60%), radial-gradient(ellipse at 70% 70%, rgba(249,115,22,0.14), transparent 60%)" }}>
+          <div className="absolute inset-0" style={{ animation: "lgPulseGlow 5s ease-in-out infinite", background: "radial-gradient(ellipse at 30% 30%, rgba(99,102,241,0.22), transparent 60%), radial-gradient(ellipse at 70% 70%, rgba(249,115,22,0.18), transparent 60%)" }} />
+          <Particles count={35} />
+          <div className="lg-shimmer-sweep" />
+          <div className="absolute inset-0 flex items-center justify-center p-10">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-xl">
               {[{ Icon: Link2, c: "text-indigo-300" }, { Icon: FileText, c: "text-orange-300" }, { Icon: Briefcase, c: "text-cyan-300" }, { Icon: TrendingUp, c: "text-emerald-300" }].map(({ Icon, c }, i) => (
-                <div key={i} className="liquid-glass rounded-2xl aspect-square flex items-center justify-center">
+                <motion.div key={i} {...floatIcon(i)} className="liquid-glass rounded-2xl aspect-square flex items-center justify-center">
                   <Icon className={`${c} w-8 h-8`} strokeWidth={1.5} />
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -174,12 +187,15 @@ export default function Landing() {
           </motion.h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
             <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.8 }}
-              className="liquid-glass rounded-3xl overflow-hidden flex items-center justify-center p-10" style={{ aspectRatio: "4/3", background: "radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.04), transparent 70%)" }}>
-              <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
+              className="liquid-glass rounded-3xl overflow-hidden relative flex items-center justify-center p-10" style={{ aspectRatio: "4/3" }}>
+              <div className="absolute inset-0" style={{ animation: "lgPulseGlow 6s ease-in-out infinite", background: "radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.06), transparent 70%)" }} />
+              <Particles count={30} />
+              <div className="lg-shimmer-sweep" />
+              <div className="relative grid grid-cols-3 gap-3 w-full max-w-xs">
                 {["186", "42", "23%"].map((v, i) => (
-                  <div key={i} className="liquid-glass rounded-xl p-4 text-center">
+                  <motion.div key={i} {...floatIcon(i)} className="liquid-glass rounded-xl p-4 text-center">
                     <div className="text-white text-xl font-bold" style={{ fontFamily: "'Instrument Serif', serif" }}>{v}</div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </motion.div>
@@ -217,7 +233,13 @@ export default function Landing() {
               <motion.div key={c.title} initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.8, delay: i * 0.15 }}
                 className="liquid-glass rounded-3xl overflow-hidden group">
                 <div className={`relative flex items-center justify-center gap-6 p-10 bg-gradient-to-br ${c.grad} transition-transform duration-700 group-hover:scale-105`} style={{ aspectRatio: "16/9" }}>
-                  {c.icons.map((Icon, j) => <Icon key={j} className="text-white/70 w-10 h-10" strokeWidth={1.25} />)}
+                  <Particles count={20} />
+                  <div className="lg-shimmer-sweep" />
+                  {c.icons.map((Icon, j) => (
+                    <motion.div key={j} {...floatIcon(j + i * 2)} className="relative">
+                      <Icon className="text-white/70 w-10 h-10" strokeWidth={1.25} />
+                    </motion.div>
+                  ))}
                 </div>
                 <div className="p-6 md:p-8">
                   <div className="uppercase tracking-widest text-white/40 text-xs mb-3">{c.tag}</div>
