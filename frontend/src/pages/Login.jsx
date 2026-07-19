@@ -3,28 +3,18 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
 
-function BrandPanel() {
+function GlowBackdrop() {
   return (
-    <div className="hidden md:flex md:w-[42%] flex-col justify-between p-10 relative overflow-hidden"
-      style={{ background: "linear-gradient(155deg, #fbe9e7 0%, #f6f2e8 55%, #dfe6cd 100%)" }}>
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold">CA</div>
-        <div className="font-bold text-lg text-dark">ConsultAdd Tracker</div>
-      </div>
-
-      <div>
-        <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 34, lineHeight: 1.2, color: "#21241c", marginBottom: 16 }}>
-          Bench recruiting,<br /><span style={{ background: "#ee5c37", color: "#fff", padding: "2px 10px", borderRadius: 8 }}>organized.</span>
-        </div>
-        <p className="text-sm text-[#55584d] max-w-xs">
-          LinkedIn profiles, resumes, and job applications — all logged and visible in one place for you and your manager.
-        </p>
-      </div>
-
-      <div className="text-xs text-[#8b8d82]">© {new Date().getFullYear()} ConsultAdd</div>
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute -top-1/4 -left-1/4 w-[70%] h-[70%] rounded-full bg-indigo-500/10 blur-[120px]" style={{ animation: "lgDrift 18s ease-in-out infinite" }} />
+      <div className="absolute -bottom-1/4 -right-1/4 w-[70%] h-[70%] rounded-full bg-orange-500/10 blur-[120px]" style={{ animation: "lgDrift 22s ease-in-out infinite reverse" }} />
     </div>
   );
 }
+
+const darkInput = "w-full h-11 rounded-xl bg-white/5 border border-white/10 px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors";
+const darkLabel = "block text-sm font-medium mb-1.5 text-white/70";
+const darkBtn = "liquid-glass w-full h-11 rounded-xl text-white text-sm font-semibold hover:bg-white/5 transition-colors disabled:opacity-40";
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -98,92 +88,89 @@ export default function Login() {
     }
   };
 
-  if (mustChange) {
-    return (
-      <div className="min-h-screen bg-surface flex">
-        <BrandPanel />
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div className="w-full max-w-sm">
-            <div className="mb-6">
-              <div className="font-bold text-xl text-dark mb-1">Set New Password</div>
-              <p className="text-sm text-muted">You must set a new password before continuing.</p>
-            </div>
-            {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 mb-4">{error}</div>}
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">New password</label>
-                <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} className="input" required minLength={8} placeholder="Min. 8 characters" autoFocus />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Confirm new password</label>
-                <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} className="input" required />
-              </div>
-              <button type="submit" className="btn-primary w-full" disabled={loading}>
-                {loading ? "Saving…" : "Set Password & Continue"}
-              </button>
-            </form>
-          </div>
+  const Shell = ({ children }) => (
+    <div className="min-h-screen bg-black relative flex items-center justify-center px-4 overflow-hidden">
+      <GlowBackdrop />
+      <div className="liquid-glass relative z-10 rounded-3xl p-8 w-full max-w-sm">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-black font-bold text-sm">CA</div>
+          <div className="text-white font-semibold text-lg">ConsultAdd Tracker</div>
+        </div>
+        {children}
+        <div className="mt-6 text-center">
+          <Link to="/" className="text-xs text-white/40 hover:text-white/70 transition-colors">← Back to team list</Link>
         </div>
       </div>
+    </div>
+  );
+
+  if (mustChange) {
+    return (
+      <Shell>
+        <div className="mb-6">
+          <div className="text-white text-xl font-semibold mb-1" style={{ fontFamily: "'Instrument Serif', serif" }}>Set New Password</div>
+          <p className="text-sm text-white/50">You must set a new password before continuing.</p>
+        </div>
+        {error && <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm rounded-xl px-3 py-2 mb-4">{error}</div>}
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <label className={darkLabel}>New password</label>
+            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} className={darkInput} required minLength={8} placeholder="Min. 8 characters" autoFocus />
+          </div>
+          <div>
+            <label className={darkLabel}>Confirm new password</label>
+            <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} className={darkInput} required />
+          </div>
+          <button type="submit" className={darkBtn} disabled={loading}>
+            {loading ? "Saving…" : "Set Password & Continue"}
+          </button>
+        </form>
+      </Shell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface flex">
-      <BrandPanel />
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm">
-          <div className="flex items-center gap-3 mb-8 md:hidden">
-            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold">CA</div>
-            <div className="font-bold text-lg">ConsultAdd Tracker</div>
-          </div>
-
-          <div className="mb-6">
-            <div className="font-bold text-xl text-dark mb-1">Welcome back</div>
-            <p className="text-sm text-muted">Sign in to your account manager dashboard.</p>
-          </div>
-
-          {suspicious && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 mb-4">
-              <div className="text-amber-800 text-sm font-semibold mb-1">⚠ Security notice</div>
-              <ul className="text-xs text-amber-700 space-y-0.5">
-                {suspicious.map((f, i) => <li key={i}>• {f}</li>)}
-              </ul>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 mb-4 flex items-start gap-2">
-              <span className="mt-0.5 flex-shrink-0">⚠</span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Email</label>
-              <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="input" required autoFocus={!email}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Password</label>
-              <input
-                type="password" value={password} onChange={e => setPassword(e.target.value)}
-                className="input" required autoFocus={!!email}
-              />
-            </div>
-            <button type="submit" className="btn-primary w-full py-2.5" disabled={loading}>
-              {loading ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <Link to="/" className="text-xs text-muted hover:text-primary">← Back to team list</Link>
-          </div>
-        </div>
+    <Shell>
+      <div className="mb-6">
+        <div className="text-white text-2xl mb-1" style={{ fontFamily: "'Instrument Serif', serif" }}>Welcome back</div>
+        <p className="text-sm text-white/50">Sign in to your account manager dashboard.</p>
       </div>
-    </div>
+
+      {suspicious && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-3 mb-4">
+          <div className="text-amber-300 text-sm font-semibold mb-1">⚠ Security notice</div>
+          <ul className="text-xs text-amber-300/80 space-y-0.5">
+            {suspicious.map((f, i) => <li key={i}>• {f}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm rounded-xl px-3 py-2 mb-4 flex items-start gap-2">
+          <span className="mt-0.5 flex-shrink-0">⚠</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleLogin} className="space-y-4">
+        <div>
+          <label className={darkLabel}>Email</label>
+          <input
+            type="email" value={email} onChange={e => setEmail(e.target.value)}
+            className={darkInput} required autoFocus={!email}
+          />
+        </div>
+        <div>
+          <label className={darkLabel}>Password</label>
+          <input
+            type="password" value={password} onChange={e => setPassword(e.target.value)}
+            className={darkInput} required autoFocus={!!email}
+          />
+        </div>
+        <button type="submit" className={darkBtn} disabled={loading}>
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </Shell>
   );
 }
