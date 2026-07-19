@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -46,6 +47,15 @@ app.use("/api/applications", applicationRoutes);
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
+// Serve the built frontend (same origin — simplifies cookies/CORS for teammates
+// using the Railway link directly). Falls back to index.html for client-side
+// routes; unmatched /api/* requests still 404 normally.
+const FRONTEND_DIST = path.join(__dirname, "../frontend/dist");
+app.use(express.static(FRONTEND_DIST));
+app.get(/^(?!\/api\/).*/, (_req, res) => {
+  res.sendFile(path.join(FRONTEND_DIST, "index.html"));
+});
 
 app.use((err, req, res, _next) => {
   console.error(err);
