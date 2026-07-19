@@ -8,10 +8,32 @@ import "./Landing.css";
 const fadeUp = { hidden: { opacity: 0, y: 28 }, show: { opacity: 1, y: 0 } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
 
-const PAIN_CARDS = [
-  { icon: "\u{1F4AC}", title: "Profiles get lost in DMs", body: "A LinkedIn URL sent over chat is easy to lose and impossible to search a week later.", rotate: -3, top: 0 },
-  { icon: "\u{1F4E7}", title: "Resumes buried in threads", body: "The latest version of a resume is always in someone's inbox — never where you need it.", rotate: 2, top: 190 },
-  { icon: "\u{1F441}️", title: "No visibility for your manager", body: "Without one shared view, your manager can't see what's actually getting done each day.", rotate: -1, top: 380 },
+const QUOTES = [
+  "I paste a LinkedIn URL into Slack and by Friday I can't find it again.",
+  "I've got three versions of the same resume and no idea which one I actually sent.",
+  "My manager asks what I worked on this week and I have to reconstruct it from memory.",
+  "I'm moving faster than I can keep track of — nothing about that feels organized.",
+];
+
+const BENEFITS = [
+  { mark: "✓", text: "No more digging through chat history to find a LinkedIn URL." },
+  { mark: "✓", text: "One upload, and the resume is ready to view — no downloads, no version mix-ups." },
+  { mark: "✓", text: "Managers see submission rates without asking for a status update." },
+];
+
+const COMPARE_ROWS = [
+  ["Find a record from last week", "no", "yes"],
+  ["One place for LinkedIn, resumes, and applications", "no", "yes"],
+  ["Manager visibility without asking", "no", "yes"],
+  ["Quick-view a resume in the browser", "no", "yes"],
+];
+
+const FAQS = [
+  { q: "Do I need to install anything?", a: "No. It runs in your browser — just sign in and start logging your work." },
+  { q: "Can I see my own numbers before my manager does?", a: "Yes. Your dashboard updates live as soon as you log a profile, resume, or application." },
+  { q: "What happens if I upload the wrong resume?", a: "Archive it and upload the current one. Old versions stay on file so nothing is lost." },
+  { q: "Who can see my LinkedIn profiles and resumes?", a: "You, and your admin. Other account managers only see their own records." },
+  { q: "Is my data backed up?", a: "Yes — everything is stored centrally alongside the rest of the team's records." },
 ];
 
 const STRIP_ITEMS = ["LinkedIn Profiles", "Resumes", "Job Applications", "Daily Tracking", "Submission Rates", "Team Visibility"];
@@ -20,6 +42,7 @@ function initials(name) { return name.split(" ").map(w => w[0]).slice(0, 2).join
 
 export default function Landing() {
   const [team, setTeam] = useState([]);
+  const [openFaq, setOpenFaq] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -87,18 +110,25 @@ export default function Landing() {
             </motion.p>
           </motion.div>
 
-          <div className="lp-pain-stack">
-            {PAIN_CARDS.map((c, i) => (
-              <motion.div key={c.title} className="lp-pain-card" style={{ top: c.top, transform: `rotate(${c.rotate}deg)`, zIndex: i }}
-                initial={{ opacity: 0, y: 30, rotate: c.rotate }} whileInView={{ opacity: 1, y: 0, rotate: c.rotate }} viewport={{ once: true, amount: 0.5 }}
-                transition={{ delay: i * 0.15, duration: 0.5 }}>
-                <div className="lp-pain-icon">{c.icon}</div>
-                <div className="lp-pain-title">{c.title}</div>
-                <div className="lp-pain-body">{c.body}</div>
+          <div className="lp-quote-list">
+            {QUOTES.map((q, i) => (
+              <motion.div key={q} className="lp-quote"
+                initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.6 }}
+                transition={{ delay: i * 0.12, duration: 0.45 }}>
+                “{q}”
               </motion.div>
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ═══ WHY WE BUILT THIS ═══ */}
+      <section className="lp-section lp-note-band" style={{ maxWidth: "none" }}>
+        <motion.div className="lp-note-inner" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+          <span className="lp-tag-label">Why we built this</span>
+          <p>Fourteen account managers were doing the same work, the same way, with no shared record of it. LinkedIn profiles in chat, resumes in inboxes, applications in whatever spreadsheet was open that day.</p>
+          <p>ConsultAdd Tracker puts all three in one place — quick enough to log in seconds, visible enough that nobody has to ask what happened this week.</p>
+        </motion.div>
       </section>
 
       {/* ═══ THE SOLUTION ═══ */}
@@ -151,6 +181,62 @@ export default function Landing() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ═══ WHAT THE TEAM NOTICES ═══ */}
+      <section className="lp-section">
+        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.3 }} variants={stagger} style={{ textAlign: "center" }}>
+          <motion.span className="lp-tag-label" variants={fadeUp}>What the team notices</motion.span>
+          <motion.h2 className="lp-section-heading" variants={fadeUp} style={{ maxWidth: "none" }}>Small changes, every day.</motion.h2>
+        </motion.div>
+        <div className="lp-benefit-grid">
+          {BENEFITS.map((b, i) => (
+            <motion.div key={b.text} className="lp-benefit-card" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.45 }}>
+              <span className="lp-benefit-mark">{b.mark}</span>
+              <div className="lp-benefit-text">{b.text}</div>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} style={{ overflowX: "auto" }}>
+          <table className="lp-compare">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Spreadsheets &amp; group chats</th>
+                <th style={{ background: "var(--lp-accent-soft)" }}>ConsultAdd Tracker</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COMPARE_ROWS.map(([label, oldV, newV]) => (
+                <tr key={label}>
+                  <td>{label}</td>
+                  <td className="no">✗</td>
+                  <td className="highlight-col yes">✓</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </motion.div>
+      </section>
+
+      {/* ═══ FAQ ═══ */}
+      <section className="lp-section" style={{ maxWidth: 760 }}>
+        <motion.div initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.3 }} variants={stagger}>
+          <motion.span className="lp-tag-label" variants={fadeUp}>Questions</motion.span>
+          <motion.h2 className="lp-section-heading" variants={fadeUp}>Good to know.</motion.h2>
+        </motion.div>
+        <div>
+          {FAQS.map((f, i) => (
+            <div key={f.q} className="lp-faq-item" onClick={() => setOpenFaq(openFaq === i ? -1 : i)}>
+              <div className="lp-faq-q">
+                {f.q}
+                <span className="lp-faq-icon">{openFaq === i ? "−" : "+"}</span>
+              </div>
+              {openFaq === i && <div className="lp-faq-a">{f.a}</div>}
+            </div>
+          ))}
         </div>
       </section>
 

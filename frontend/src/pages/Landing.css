@@ -154,6 +154,47 @@
 .lp-mock-row-label { color: var(--lp-muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.4px; }
 .lp-mock-pill { font-size: 11px; padding: 3px 10px; border-radius: 100px; font-weight: 700; background: var(--lp-sage); color: #4b5738; }
 
+/* ── Quote bubbles (pain points) ──────────────────────────── */
+.lp-quote-list { display: flex; flex-direction: column; gap: 16px; max-width: 480px; }
+.lp-quote {
+  background: var(--lp-blush); border-radius: 18px 18px 18px 4px; padding: 18px 22px;
+  font-size: 15.5px; color: var(--lp-ink); line-height: 1.55; font-style: italic;
+}
+.lp-quote:nth-child(even) { border-radius: 18px 18px 4px 18px; background: var(--lp-cream); align-self: flex-end; }
+
+/* ── Intro / why-we-built-this note ────────────────────────── */
+.lp-note-band { background: var(--lp-cream); }
+.lp-note-inner {
+  max-width: 760px; margin: 0 auto; text-align: center;
+}
+.lp-note-inner p { font-size: 18px; color: var(--lp-ink-soft); line-height: 1.75; }
+.lp-note-inner p + p { margin-top: 16px; }
+
+/* ── Benefit cards ─────────────────────────────────────────── */
+.lp-benefit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 50px; }
+@media (max-width: 880px) { .lp-benefit-grid { grid-template-columns: 1fr; } }
+.lp-benefit-card {
+  background: #fff; border: 1px solid var(--lp-border); border-radius: 16px; padding: 26px;
+}
+.lp-benefit-mark { color: var(--lp-accent); font-size: 20px; margin-bottom: 12px; display: block; }
+.lp-benefit-text { font-size: 15px; color: var(--lp-ink); line-height: 1.6; font-weight: 500; }
+
+/* ── Comparison table ─────────────────────────────────────── */
+.lp-compare { width: 100%; border-collapse: collapse; margin-top: 46px; background: #fff; border-radius: 18px; overflow: hidden; border: 1px solid var(--lp-border); }
+.lp-compare th, .lp-compare td { padding: 16px 20px; text-align: left; font-size: 14.5px; border-bottom: 1px solid var(--lp-border); }
+.lp-compare th { font-weight: 700; color: var(--lp-ink); background: var(--lp-cream); }
+.lp-compare td:first-child, .lp-compare th:first-child { color: var(--lp-ink-soft); }
+.lp-compare tr:last-child td { border-bottom: none; }
+.lp-compare .yes { color: var(--lp-sage-deep); font-weight: 700; }
+.lp-compare .no { color: var(--lp-muted); }
+.lp-compare .highlight-col { background: var(--lp-accent-soft); font-weight: 700; color: var(--lp-ink); }
+
+/* ── FAQ ──────────────────────────────────────────────────── */
+.lp-faq-item { border-bottom: 1px solid var(--lp-border); padding: 22px 0; cursor: pointer; }
+.lp-faq-q { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 600; color: var(--lp-ink); }
+.lp-faq-icon { font-size: 20px; color: var(--lp-accent); flex-shrink: 0; margin-left: 16px; }
+.lp-faq-a { font-size: 15px; color: var(--lp-ink-soft); line-height: 1.65; margin-top: 12px; max-width: 640px; }
+
 /* ── Team ─────────────────────────────────────────────────── */
 .lp-team-section { background: var(--lp-cream); }
 .sdr-pill {
