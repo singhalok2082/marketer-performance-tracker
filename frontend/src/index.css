@@ -16,6 +16,27 @@
   button:disabled { opacity: 0.4; cursor: not-allowed !important; }
 }
 
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-border;
+  }
+  .input {
+    @apply w-full h-10 rounded-lg border border-border bg-white px-3 text-sm text-dark outline-none transition-colors;
+  }
+  .input:focus {
+    @apply border-primary ring-2 ring-primary/15;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center h-10 px-4 rounded-lg bg-primary text-white text-sm font-semibold transition-colors;
+  }
+  .btn-primary:hover:not(:disabled) {
+    @apply bg-primary-hover;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+}
+
 @keyframes pulseDot  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
 @keyframes tickerIn  { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
 @keyframes toastIn   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
