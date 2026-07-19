@@ -14,6 +14,9 @@ const analyticsRoutes = require("./routes/analytics");
 const linkedinRoutes  = require("./routes/linkedin");
 const resumeRoutes    = require("./routes/resumes");
 const applicationRoutes = require("./routes/applications");
+const outreachRoutes  = require("./routes/outreach");
+const vendorActivityRoutes = require("./routes/vendor-activities");
+const dailyNoteRoutes = require("./routes/daily-notes");
 
 const app = express();
 
@@ -44,6 +47,9 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/linkedin",     linkedinRoutes);
 app.use("/api/resumes",      resumeRoutes);
 app.use("/api/applications", applicationRoutes);
+app.use("/api/outreach",          outreachRoutes);
+app.use("/api/vendor-activities", vendorActivityRoutes);
+app.use("/api/daily-notes",       dailyNoteRoutes);
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));

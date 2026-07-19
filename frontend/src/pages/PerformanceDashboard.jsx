@@ -3,6 +3,9 @@ import api from "../api/client";
 import LinkedInProfiles from "../components/tracker/LinkedInProfiles";
 import Resumes from "../components/tracker/Resumes";
 import JobApplications from "../components/tracker/JobApplications";
+import RecruiterOutreach from "../components/tracker/RecruiterOutreach";
+import VendorActivities from "../components/tracker/VendorActivities";
+import DailyNotes from "../components/tracker/DailyNotes";
 
 const STATUS_LIST = ["Applied", "Submitted to Client", "Interview Scheduled", "Offer", "Rejected", "No Response"];
 const TODAY   = new Date().toISOString().slice(0, 10);
@@ -37,6 +40,9 @@ const TABS = [
   ["applications", "Applications"],
   ["linkedin", "LinkedIn Profiles"],
   ["resumes", "Resumes"],
+  ["outreach", "Recruiter Outreach"],
+  ["activities", "Vendor Activities"],
+  ["notes", "Daily Notes"],
 ];
 
 /* ─────────────── COMPONENT ─────────────── */
@@ -418,6 +424,9 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
         {s.tab === "resumes" && <Resumes user={user} />}
         {s.tab === "applications" && <JobApplications user={user} />}
+        {s.tab === "outreach" && <RecruiterOutreach user={user} />}
+        {s.tab === "activities" && <VendorActivities user={user} />}
+        {s.tab === "notes" && <DailyNotes user={user} />}
 
         {s.tab === "overview" && showOverviewLoading && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, color: "#7B8094", fontSize: 14, gap: 10 }}>
