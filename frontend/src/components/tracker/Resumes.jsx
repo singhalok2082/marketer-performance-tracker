@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../../api/client";
+import { driveEmbedUrl } from "../../utils/drivePreview";
 
 export default function Resumes({ user }) {
   const isAdmin = user?.role === "admin";
@@ -9,12 +10,14 @@ export default function Resumes({ user }) {
   const [statusFilter, setStatusFilter] = useState("active");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [mode, setMode] = useState("file"); // "file" | "link"
   const [title, setTitle] = useState("");
   const [techStack, setTechStack] = useState("");
   const [file, setFile] = useState(null);
+  const [driveLink, setDriveLink] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
-  const [viewer, setViewer] = useState(null); // { url, file_type, file_name, title }
+  const [viewer, setViewer] = useState(null); // { url, file_type, file_name, title, is_drive_link }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -32,22 +35,26 @@ export default function Resumes({ user }) {
     if (isAdmin) api.get("/users/public").then(r => setManagers(r.data)).catch(() => {});
   }, [isAdmin]);
 
+  const resetForm = () => { setTitle(""); setTechStack(""); setFile(null); setDriveLink(""); setMode("file"); };
+
   const submit = async (e) => {
     e.preventDefault();
-    if (!file) { setMsg({ type: "error", text: "Choose a PDF, DOC, or DOCX file" }); return; }
+    if (mode === "file" && !file) { setMsg({ type: "error", text: "Choose a PDF, DOC, or DOCX file" }); return; }
+    if (mode === "link" && !driveLink.trim()) { setMsg({ type: "error", text: "Paste a Google Drive link" }); return; }
     setSaving(true);
     setMsg(null);
     try {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("tech_stack", techStack);
-      formData.append("file", file);
+      if (mode === "file") formData.append("file", file);
+      else formData.append("google_drive_link", driveLink.trim());
       await api.post("/resumes", formData, { headers: { "Content-Type": "multipart/form-data" } });
-      setMsg({ type: "success", text: "Resume uploaded." });
-      setTitle(""); setTechStack(""); setFile(null); setShowForm(false);
+      setMsg({ type: "success", text: "Resume added." });
+      resetForm(); setShowForm(false);
       load();
     } catch (err) {
-      setMsg({ type: "error", text: err.response?.data?.error || "Failed to upload" });
+      setMsg({ type: "error", text: err.response?.data?.error || "Failed to save" });
     } finally {
       setSaving(false);
     }
@@ -72,7 +79,7 @@ export default function Resumes({ user }) {
   };
 
   const remove = async (r) => {
-    if (!confirm(`Delete resume "${r.title}" (${r.file_name})? This cannot be undone.`)) return;
+    if (!confirm(`Delete resume "${r.title}"? This cannot be undone.`)) return;
     try {
       await api.delete(`/resumes/${r.id}`);
       load();
@@ -83,6 +90,10 @@ export default function Resumes({ user }) {
 
   return (
     <div className="space-y-5">
+      <p className="text-sm text-muted -mb-1">
+        Your resume library — every resume you've ever built, current and archived. Upload one today and it lands here immediately as part of your asset library.
+      </p>
+
       {msg && (
         <div className={`text-sm rounded-lg px-4 py-3 border ${msg.type === "error" ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
           {msg.text}
@@ -106,15 +117,25 @@ export default function Resumes({ user }) {
             <option value="inactive">Old / archived</option>
             <option value="all">All</option>
           </select>
-          <button onClick={() => setShowForm(o => !o)}
+          <button onClick={() => { setShowForm(o => !o); if (showForm) resetForm(); }}
             className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold">
-            {showForm ? "Cancel" : "+ Upload Resume"}
+            {showForm ? "Cancel" : "+ Add Resume"}
           </button>
         </div>
       </div>
 
       {showForm && (
         <form onSubmit={submit} className="bg-white rounded-xl border border-border p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2 flex gap-2">
+            <button type="button" onClick={() => setMode("file")}
+              className={`h-8 px-3 rounded-lg text-xs font-semibold border ${mode === "file" ? "bg-primary text-white border-primary" : "border-border text-muted"}`}>
+              Upload PDF / DOC
+            </button>
+            <button type="button" onClick={() => setMode("link")}
+              className={`h-8 px-3 rounded-lg text-xs font-semibold border ${mode === "link" ? "bg-primary text-white border-primary" : "border-border text-muted"}`}>
+              Google Drive link
+            </button>
+          </div>
           <div>
             <label className="block text-xs font-medium mb-1">Title / designation *</label>
             <input required value={title} onChange={e => setTitle(e.target.value)}
@@ -125,14 +146,23 @@ export default function Resumes({ user }) {
             <input required value={techStack} onChange={e => setTechStack(e.target.value)}
               placeholder="Java, React, DevOps…" className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
           </div>
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium mb-1">File (PDF, DOC, DOCX) *</label>
-            <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] || null)}
-              className="w-full text-sm" />
-          </div>
+          {mode === "file" ? (
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium mb-1">File (PDF, DOC, DOCX) *</label>
+              <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] || null)}
+                className="w-full text-sm" />
+            </div>
+          ) : (
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium mb-1">Google Drive link *</label>
+              <input required type="url" value={driveLink} onChange={e => setDriveLink(e.target.value)}
+                placeholder="https://drive.google.com/file/d/…" className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
+              <p className="text-xs text-muted mt-1">Make sure sharing is set to "Anyone with the link" so it can be previewed in the portal.</p>
+            </div>
+          )}
           <div className="sm:col-span-2 flex justify-end">
             <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-40">
-              {saving ? "Uploading…" : "Upload"}
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </form>
@@ -142,7 +172,7 @@ export default function Resumes({ user }) {
         {loading ? (
           <div className="text-center py-10 text-muted">Loading…</div>
         ) : resumes.length === 0 ? (
-          <div className="text-center py-10 text-muted">No resumes uploaded yet.</div>
+          <div className="text-center py-10 text-muted">No resumes added yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -151,8 +181,8 @@ export default function Resumes({ user }) {
                   {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted">Manager</th>}
                   <th className="px-4 py-2.5 font-semibold text-muted">Title</th>
                   <th className="px-4 py-2.5 font-semibold text-muted">Tech stack</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">File</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Uploaded</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted">Source</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted">Added</th>
                   <th className="px-4 py-2.5 font-semibold text-muted">Status</th>
                   <th className="px-4 py-2.5 font-semibold text-muted text-right">Actions</th>
                 </tr>
@@ -163,7 +193,11 @@ export default function Resumes({ user }) {
                     {isAdmin && <td className="px-4 py-2.5">{r.user_name || "—"}</td>}
                     <td className="px-4 py-2.5 font-medium">{r.title}</td>
                     <td className="px-4 py-2.5 text-muted">{r.tech_stack || "—"}</td>
-                    <td className="px-4 py-2.5 text-muted truncate max-w-[220px]">{r.file_name} <span className="uppercase text-xs">({r.file_type})</span></td>
+                    <td className="px-4 py-2.5 text-muted truncate max-w-[220px]">
+                      {r.google_drive_link
+                        ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700">🔗 Google Drive</span>
+                        : <>{r.file_name} <span className="uppercase text-xs">({r.file_type})</span></>}
+                    </td>
                     <td className="px-4 py-2.5 text-muted">{new Date(r.created_at).toLocaleDateString()}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
@@ -171,7 +205,7 @@ export default function Resumes({ user }) {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      <button onClick={() => view(r)} className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-border hover:bg-surface mr-1.5">Quick view</button>
+                      <button onClick={() => view(r)} className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-border hover:bg-surface mr-1.5">Preview</button>
                       <button onClick={() => toggleActive(r)} className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-border hover:bg-surface mr-1.5">
                         {r.is_active ? "Archive" : "Restore"}
                       </button>
@@ -185,21 +219,29 @@ export default function Resumes({ user }) {
         )}
       </div>
 
-      {viewer && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setViewer(null)}>
-          <div className="bg-white rounded-xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-              <div className="font-semibold text-sm">{viewer.title} — {viewer.file_name}</div>
-              <button onClick={() => setViewer(null)} className="text-muted hover:text-dark text-xl leading-none">×</button>
+      {viewer && (() => {
+        const embedSrc = viewer.is_drive_link
+          ? driveEmbedUrl(viewer.url)
+          : (viewer.file_type === "pdf" ? viewer.url : `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewer.url)}`);
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setViewer(null)}>
+            <div className="bg-white rounded-xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+                <div className="font-semibold text-sm">{viewer.title} — {viewer.file_name}</div>
+                <button onClick={() => setViewer(null)} className="text-muted hover:text-dark text-xl leading-none">×</button>
+              </div>
+              {embedSrc ? (
+                <iframe title="Resume preview" className="flex-1 w-full" src={embedSrc} />
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-sm text-muted p-6 text-center">
+                  <div>This link can't be previewed inline.</div>
+                  <a href={viewer.url} target="_blank" rel="noreferrer" className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold inline-flex items-center">Open link</a>
+                </div>
+              )}
             </div>
-            <iframe
-              title="Resume preview"
-              className="flex-1 w-full"
-              src={viewer.file_type === "pdf" ? viewer.url : `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewer.url)}`}
-            />
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

@@ -71,6 +71,10 @@ export default function JobDescriptions({ user }) {
 
   return (
     <div className="space-y-5">
+      <p className="text-sm text-muted -mb-1">
+        Every time you write a brand-new JD, or update/enhance one a client sent you, log it here — by designation and location, so the team can see how much JD work is happening and where.
+      </p>
+
       {msg && (
         <div className={`text-sm rounded-lg px-4 py-3 border ${msg.type === "error" ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
           {msg.text}

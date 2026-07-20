@@ -127,13 +127,18 @@ export default function AdminDashboard() {
         <nav className={`bg-gray-900 border-r border-gray-700 flex flex-col transition-all duration-200 ${sidebarOpen ? "w-52" : "w-0 overflow-hidden"}`}>
           <div className="p-3 space-y-0.5 flex-1">
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
-                  tab === t.id ? "bg-primary text-white" : "text-gray-400 hover:text-white hover:bg-gray-800"
-                }`}>
-                <span className="text-base">{t.icon}</span>
-                <span>{t.label}</span>
-              </button>
+              <React.Fragment key={t.id}>
+                {t.id === "linkedin" && (
+                  <div className="px-3 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wide text-gray-500">Assets</div>
+                )}
+                <button onClick={() => setTab(t.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
+                    tab === t.id ? "bg-primary text-white" : "text-gray-400 hover:text-white hover:bg-gray-800"
+                  }`}>
+                  <span className="text-base">{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              </React.Fragment>
             ))}
           </div>
         </nav>

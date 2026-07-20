@@ -383,10 +383,18 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
           {TABS.map(([key, label]) => {
             const active = s.tab === key;
             return (
-              <button key={key} onClick={() => set({ tab: key })}
-                style={{ height: 32, padding: "0 14px", borderRadius: 8, border: `1px solid ${active ? "#4F46E5" : "#DDE0E8"}`, background: active ? "#4F46E5" : "white", color: active ? "white" : "#383B49", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-                {label}
-              </button>
+              <React.Fragment key={key}>
+                {key === "linkedin" && (
+                  <React.Fragment>
+                    <div style={{ width: 1, height: 20, background: "#E7E9EF", margin: "0 4px" }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#A1A5B3", textTransform: "uppercase", letterSpacing: 0.4, marginRight: 2 }}>Assets</span>
+                  </React.Fragment>
+                )}
+                <button onClick={() => set({ tab: key })}
+                  style={{ height: 32, padding: "0 14px", borderRadius: 8, border: `1px solid ${active ? "#4F46E5" : "#DDE0E8"}`, background: active ? "#4F46E5" : "white", color: active ? "white" : "#383B49", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                  {label}
+                </button>
+              </React.Fragment>
             );
           })}
           {s.tab === "overview" && (
