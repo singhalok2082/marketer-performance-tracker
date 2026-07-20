@@ -16,7 +16,6 @@ import JobApplications from "../../components/tracker/JobApplications";
 import RecruiterOutreach from "../../components/tracker/RecruiterOutreach";
 import VendorActivities from "../../components/tracker/VendorActivities";
 import DailyNotes from "../../components/tracker/DailyNotes";
-import JobDescriptions from "../../components/tracker/JobDescriptions";
 
 const TABS = [
   { id: "sessions",   label: "Active Sessions",  icon: "🟢" },
@@ -27,7 +26,6 @@ const TABS = [
   { id: "portals",    label: "Portals",           icon: "🔗" },
   { id: "passwords",  label: "Reset Passwords",   icon: "🔑" },
   { id: "applications", label: "Applications",    icon: "📨" },
-  { id: "jobdescriptions", label: "Job Descriptions", icon: "🧾" },
   { id: "outreach",   label: "Inbound Requirements", icon: "📥" },
   { id: "activities", label: "Vendor Activities",  icon: "☎️" },
   { id: "notes",      label: "Daily Notes",        icon: "📝" },
@@ -172,7 +170,6 @@ export default function AdminDashboard() {
             {tab === "linkedin"     && <LinkedInProfiles user={user} />}
             {tab === "resumes"      && <Resumes user={user} />}
             {tab === "applications" && <JobApplications user={user} />}
-            {tab === "jobdescriptions" && <JobDescriptions user={user} />}
             {tab === "outreach"     && <RecruiterOutreach user={user} />}
             {tab === "activities"   && <VendorActivities user={user} />}
             {tab === "notes"        && <DailyNotes user={user} />}

@@ -17,7 +17,6 @@ const applicationRoutes = require("./routes/applications");
 const outreachRoutes  = require("./routes/outreach");
 const vendorActivityRoutes = require("./routes/vendor-activities");
 const dailyNoteRoutes = require("./routes/daily-notes");
-const jobDescriptionRoutes = require("./routes/job-descriptions");
 
 const app = express();
 
@@ -51,7 +50,6 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/outreach",          outreachRoutes);
 app.use("/api/vendor-activities", vendorActivityRoutes);
 app.use("/api/daily-notes",       dailyNoteRoutes);
-app.use("/api/job-descriptions",  jobDescriptionRoutes);
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
