@@ -22,7 +22,24 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-app.use(helmet());
+// Resume previews embed Supabase Storage, Google Drive/Docs, and Office
+// Online Viewer in an <iframe> — helmet's default CSP has no frame-src,
+// which falls back to default-src 'self' and silently blocks all of them.
+const supabaseOrigin = process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL).origin : null;
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "frame-src": [
+        "'self'",
+        ...(supabaseOrigin ? [supabaseOrigin] : []),
+        "https://view.officeapps.live.com",
+        "https://docs.google.com",
+        "https://drive.google.com",
+      ],
+    },
+  },
+}));
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:5173",
   credentials: true,
