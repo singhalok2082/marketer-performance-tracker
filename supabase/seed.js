@@ -33,10 +33,12 @@ const TEAM = [
 ];
 
 const DEFAULT_PORTALS = [
-  { name: "LinkedIn",    url: "https://linkedin.com" },
-  { name: "Naukri",      url: "https://naukri.com" },
-  { name: "Indeed",      url: "https://indeed.com" },
-  { name: "Internshala", url: "https://internshala.com" },
+  { name: "LinkedIn",      url: "https://linkedin.com" },
+  { name: "Dice",          url: "https://dice.com" },
+  { name: "Monster",       url: "https://monster.com" },
+  { name: "Indeed",        url: "https://indeed.com" },
+  { name: "ZipRecruiter",  url: "https://ziprecruiter.com" },
+  { name: "CareerBuilder", url: "https://careerbuilder.com" },
 ];
 
 // Upsert with fallback: try full row, retry without optional columns if schema is partial

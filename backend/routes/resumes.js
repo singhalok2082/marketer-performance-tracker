@@ -48,6 +48,7 @@ router.post("/", requireAuth, (req, res) => {
     if (uploadErr) return res.status(400).json({ error: uploadErr.message });
     if (!req.file) return res.status(400).json({ error: "A resume file is required" });
     if (!req.body.title?.trim()) return res.status(400).json({ error: "Title is required" });
+    if (!req.body.tech_stack?.trim()) return res.status(400).json({ error: "Tech stack is required" });
 
     const fileType = MIME_TO_TYPE[req.file.mimetype];
     const path = `${req.user.userId}/${uuidv4()}.${fileType}`;
@@ -62,6 +63,7 @@ router.post("/", requireAuth, (req, res) => {
       .insert({
         user_id: req.user.userId,
         title: req.body.title.trim(),
+        tech_stack: req.body.tech_stack.trim(),
         file_path: path,
         file_name: req.file.originalname,
         file_type: fileType,
@@ -105,9 +107,10 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if (findErr || !existing) return res.status(404).json({ error: "Not found" });
   if (!canModify(req, existing)) return res.status(403).json({ error: "Not allowed" });
 
-  const { title, is_active } = req.body;
+  const { title, tech_stack, is_active } = req.body;
   const updates = { updated_at: new Date().toISOString() };
   if (title !== undefined) updates.title = title.trim();
+  if (tech_stack !== undefined) updates.tech_stack = tech_stack?.trim() || null;
   if (is_active !== undefined) updates.is_active = is_active;
 
   const { data, error } = await supabase

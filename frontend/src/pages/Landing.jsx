@@ -1,15 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
-import { ArrowRight, ArrowUpRight, Link2, FileText, Briefcase, TrendingUp } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
-import Particles from "../components/landing/Particles";
+import HeroVideo from "../components/landing/HeroVideo";
 
-const floatIcon = (i = 0) => ({
-  animate: { y: [0, -10, 0] },
-  transition: { duration: 3 + (i % 3) * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 },
-});
+const asset = (path) => `${import.meta.env.BASE_URL}videos/${path}`;
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 32 },
@@ -25,8 +22,6 @@ function GlowBackdrop() {
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       <div className="absolute -top-1/4 -left-1/4 w-[70%] h-[70%] rounded-full bg-indigo-500/20 blur-[100px]" style={{ animation: "lgDrift 14s ease-in-out infinite" }} />
       <div className="absolute -bottom-1/4 -right-1/4 w-[70%] h-[70%] rounded-full bg-orange-500/20 blur-[100px]" style={{ animation: "lgDrift 17s ease-in-out infinite reverse" }} />
-      <Particles count={70} />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black" />
     </div>
   );
 }
@@ -88,6 +83,8 @@ export default function Landing() {
       {/* ═══ HERO ═══ */}
       <section className="relative min-h-screen overflow-hidden flex flex-col">
         <GlowBackdrop />
+        <HeroVideo src={asset("hero.mp4")} />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black pointer-events-none" />
         <Navbar onAdminLogin={() => navigate("/admin-login")} onSignIn={() => navigate("/login")} />
 
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-12 text-center" style={{ transform: "translateY(-8%)" }}>
@@ -151,19 +148,11 @@ export default function Landing() {
 
       {/* ═══ FEATURED PRODUCT ═══ */}
       <section id="features" className="bg-black pt-6 md:pt-10 pb-24 md:pb-32 px-6 overflow-hidden">
-        <motion.div {...fadeUp(0)} className="max-w-6xl mx-auto rounded-3xl overflow-hidden relative liquid-glass" style={{ aspectRatio: "16/9" }}>
-          <div className="absolute inset-0" style={{ animation: "lgPulseGlow 5s ease-in-out infinite", background: "radial-gradient(ellipse at 30% 30%, rgba(99,102,241,0.22), transparent 60%), radial-gradient(ellipse at 70% 70%, rgba(249,115,22,0.18), transparent 60%)" }} />
-          <Particles count={35} />
-          <div className="lg-shimmer-sweep" />
-          <div className="absolute inset-0 flex items-center justify-center p-10">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full max-w-xl">
-              {[{ Icon: Link2, c: "text-indigo-300" }, { Icon: FileText, c: "text-orange-300" }, { Icon: Briefcase, c: "text-cyan-300" }, { Icon: TrendingUp, c: "text-emerald-300" }].map(({ Icon, c }, i) => (
-                <motion.div key={i} {...floatIcon(i)} className="liquid-glass rounded-2xl aspect-square flex items-center justify-center">
-                  <Icon className={`${c} w-8 h-8`} strokeWidth={1.5} />
-                </motion.div>
-              ))}
-            </div>
-          </div>
+        <motion.div {...fadeUp(0)} className="max-w-6xl mx-auto rounded-3xl overflow-hidden relative" style={{ aspectRatio: "16/9" }}>
+          <video className="absolute inset-0 w-full h-full object-cover" muted autoPlay loop playsInline preload="auto">
+            <source src={asset("featured.mp4")} type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div className="liquid-glass rounded-2xl p-6 md:p-8 max-w-md">
               <div className="text-white/50 text-xs tracking-widest uppercase mb-3">Our Approach</div>
@@ -187,15 +176,16 @@ export default function Landing() {
           </motion.h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
             <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.8 }}
-              className="liquid-glass rounded-3xl overflow-hidden relative flex items-center justify-center p-10" style={{ aspectRatio: "4/3" }}>
-              <div className="absolute inset-0" style={{ animation: "lgPulseGlow 6s ease-in-out infinite", background: "radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.06), transparent 70%)" }} />
-              <Particles count={30} />
-              <div className="lg-shimmer-sweep" />
-              <div className="relative grid grid-cols-3 gap-3 w-full max-w-xs">
-                {["186", "42", "23%"].map((v, i) => (
-                  <motion.div key={i} {...floatIcon(i)} className="liquid-glass rounded-xl p-4 text-center">
+              className="rounded-3xl overflow-hidden relative" style={{ aspectRatio: "4/3" }}>
+              <video className="absolute inset-0 w-full h-full object-cover" muted autoPlay loop playsInline preload="auto">
+                <source src={asset("tracking.mp4")} type="video/mp4" />
+              </video>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 grid grid-cols-3 gap-3">
+                {["186", "42", "23%"].map((v) => (
+                  <div key={v} className="liquid-glass rounded-xl p-4 text-center">
                     <div className="text-white text-xl font-bold" style={{ fontFamily: "'Instrument Serif', serif" }}>{v}</div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </motion.div>
@@ -227,19 +217,16 @@ export default function Landing() {
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {[
-              { tag: "Tracking", title: "LinkedIn & Resumes", desc: "Log every profile and resume as it's created — quick-view any resume right in the browser, no downloads needed.", icons: [Link2, FileText], grad: "from-indigo-500/20 to-transparent" },
-              { tag: "Visibility", title: "Applications & Reporting", desc: "Every application logged with portal, status, and resume used — submission rates roll up for your manager automatically.", icons: [Briefcase, TrendingUp], grad: "from-orange-500/20 to-transparent" },
+              { tag: "Tracking", title: "LinkedIn & Resumes", desc: "Log every profile and resume as it's created — quick-view any resume right in the browser, no downloads needed.", video: "service-1.mp4" },
+              { tag: "Visibility", title: "Applications & Reporting", desc: "Every application logged with portal, status, and resume used — submission rates roll up for your manager automatically.", video: "service-2.mp4" },
             ].map((c, i) => (
               <motion.div key={c.title} initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.8, delay: i * 0.15 }}
                 className="liquid-glass rounded-3xl overflow-hidden group">
-                <div className={`relative flex items-center justify-center gap-6 p-10 bg-gradient-to-br ${c.grad} transition-transform duration-700 group-hover:scale-105`} style={{ aspectRatio: "16/9" }}>
-                  <Particles count={20} />
-                  <div className="lg-shimmer-sweep" />
-                  {c.icons.map((Icon, j) => (
-                    <motion.div key={j} {...floatIcon(j + i * 2)} className="relative">
-                      <Icon className="text-white/70 w-10 h-10" strokeWidth={1.25} />
-                    </motion.div>
-                  ))}
+                <div className="relative overflow-hidden" style={{ aspectRatio: "16/9" }}>
+                  <video className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" muted autoPlay loop playsInline preload="auto">
+                    <source src={asset(c.video)} type="video/mp4" />
+                  </video>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                 </div>
                 <div className="p-6 md:p-8">
                   <div className="uppercase tracking-widest text-white/40 text-xs mb-3">{c.tag}</div>

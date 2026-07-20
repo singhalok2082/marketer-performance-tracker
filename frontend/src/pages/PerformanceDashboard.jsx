@@ -6,6 +6,7 @@ import JobApplications from "../components/tracker/JobApplications";
 import RecruiterOutreach from "../components/tracker/RecruiterOutreach";
 import VendorActivities from "../components/tracker/VendorActivities";
 import DailyNotes from "../components/tracker/DailyNotes";
+import JobDescriptions from "../components/tracker/JobDescriptions";
 
 const STATUS_LIST = ["Applied", "Submitted to Client", "Interview Scheduled", "Offer", "Rejected", "No Response"];
 const TODAY   = new Date().toISOString().slice(0, 10);
@@ -38,11 +39,12 @@ function getRangeBounds(timeRange, customStart, customEnd) {
 const TABS = [
   ["overview", "Overview"],
   ["applications", "Applications"],
-  ["linkedin", "LinkedIn Profiles"],
-  ["resumes", "Resumes"],
-  ["outreach", "Recruiter Outreach"],
+  ["jobdescriptions", "Job Descriptions"],
+  ["outreach", "Inbound Requirements"],
   ["activities", "Vendor Activities"],
   ["notes", "Daily Notes"],
+  ["linkedin", "LinkedIn Profiles"],
+  ["resumes", "Resumes"],
 ];
 
 /* ─────────────── COMPONENT ─────────────── */
@@ -424,6 +426,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
         {s.tab === "resumes" && <Resumes user={user} />}
         {s.tab === "applications" && <JobApplications user={user} />}
+        {s.tab === "jobdescriptions" && <JobDescriptions user={user} />}
         {s.tab === "outreach" && <RecruiterOutreach user={user} />}
         {s.tab === "activities" && <VendorActivities user={user} />}
         {s.tab === "notes" && <DailyNotes user={user} />}

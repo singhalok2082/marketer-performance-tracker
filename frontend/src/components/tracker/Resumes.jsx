@@ -10,6 +10,7 @@ export default function Resumes({ user }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
+  const [techStack, setTechStack] = useState("");
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -39,10 +40,11 @@ export default function Resumes({ user }) {
     try {
       const formData = new FormData();
       formData.append("title", title);
+      formData.append("tech_stack", techStack);
       formData.append("file", file);
       await api.post("/resumes", formData, { headers: { "Content-Type": "multipart/form-data" } });
       setMsg({ type: "success", text: "Resume uploaded." });
-      setTitle(""); setFile(null); setShowForm(false);
+      setTitle(""); setTechStack(""); setFile(null); setShowForm(false);
       load();
     } catch (err) {
       setMsg({ type: "error", text: err.response?.data?.error || "Failed to upload" });
@@ -119,6 +121,11 @@ export default function Resumes({ user }) {
               placeholder="Python Engineer, DevOps Engineer…" className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
           </div>
           <div>
+            <label className="block text-xs font-medium mb-1">Tech stack *</label>
+            <input required value={techStack} onChange={e => setTechStack(e.target.value)}
+              placeholder="Java, React, DevOps…" className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
+          </div>
+          <div className="sm:col-span-2">
             <label className="block text-xs font-medium mb-1">File (PDF, DOC, DOCX) *</label>
             <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] || null)}
               className="w-full text-sm" />
@@ -143,6 +150,7 @@ export default function Resumes({ user }) {
                 <tr className="bg-surface text-left">
                   {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted">Manager</th>}
                   <th className="px-4 py-2.5 font-semibold text-muted">Title</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted">Tech stack</th>
                   <th className="px-4 py-2.5 font-semibold text-muted">File</th>
                   <th className="px-4 py-2.5 font-semibold text-muted">Uploaded</th>
                   <th className="px-4 py-2.5 font-semibold text-muted">Status</th>
@@ -154,6 +162,7 @@ export default function Resumes({ user }) {
                   <tr key={r.id} className="border-t border-border">
                     {isAdmin && <td className="px-4 py-2.5">{r.user_name || "—"}</td>}
                     <td className="px-4 py-2.5 font-medium">{r.title}</td>
+                    <td className="px-4 py-2.5 text-muted">{r.tech_stack || "—"}</td>
                     <td className="px-4 py-2.5 text-muted truncate max-w-[220px]">{r.file_name} <span className="uppercase text-xs">({r.file_type})</span></td>
                     <td className="px-4 py-2.5 text-muted">{new Date(r.created_at).toLocaleDateString()}</td>
                     <td className="px-4 py-2.5">
