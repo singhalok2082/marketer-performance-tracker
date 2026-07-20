@@ -23,7 +23,7 @@ function statusColors(status) {
   if (status === "Interview Scheduled") return { bg: "#DBEAFE", color: "#1D4ED8" };
   if (status === "Submitted to Client") return { bg: "#EDE9FE", color: "#6D28D9" };
   if (status === "Rejected") return { bg: "#FEE2E2", color: "#B91C1C" };
-  if (status === "No Response") return { bg: "#F1F2F6", color: "#7B8094" };
+  if (status === "No Response") return { bg: "#F1F5F9", color: "#64748B" };
   return { bg: "#FEF3C7", color: "#B45309" };
 }
 
@@ -44,6 +44,19 @@ const TABS = [
   ["linkedin", "LinkedIn Profiles"],
   ["resumes", "Resumes"],
 ];
+
+/* ─────────────── shared style helpers ─────────────── */
+const pillBtn = (active) =>
+  `h-7 px-3.5 rounded-md text-xs font-semibold transition-colors ${
+    active ? "bg-white text-primary shadow-sm" : "text-muted hover:text-dark"
+  }`;
+const chipBtn = (active) =>
+  `h-8 px-3.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap ${
+    active ? "bg-primary border-primary text-white shadow-sm" : "bg-white border-border text-medium hover:bg-surface hover:border-slate-300"
+  }`;
+const ghostBtn = "h-8 px-3.5 rounded-lg border border-border bg-white text-xs font-semibold text-medium hover:bg-surface hover:border-slate-300 transition-colors";
+const iconGhostBtn = "w-7 h-7 flex items-center justify-center rounded-lg border border-border bg-white text-muted hover:bg-surface hover:text-dark transition-colors";
+const th = "text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted whitespace-nowrap";
 
 /* ─────────────── COMPONENT ─────────────── */
 export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel }) {
@@ -198,14 +211,14 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
     const activeIds = new Set(apps.map(a => a.user_id));
 
     const kpis = isAdmin ? [
-      { label: "Total applications", value: totalApps.toLocaleString(), sub: `${activeIds.size} active managers`, color: "#16181D" },
+      { label: "Total applications", value: totalApps.toLocaleString(), sub: `${activeIds.size} active managers`, color: "#0F172A" },
       { label: "Client submissions", value: totalSubs.toLocaleString(), sub: subRate + "% of applications", color: "#4F46E5" },
-      { label: "Submission rate", value: subRate + "%", sub: "Applied → submitted to client", color: "#16181D" },
-      { label: "Team size", value: managers.length, sub: activeIds.size + " active this period", color: "#16181D" },
+      { label: "Submission rate", value: subRate + "%", sub: "Applied → submitted to client", color: "#0F172A" },
+      { label: "Team size", value: managers.length, sub: activeIds.size + " active this period", color: "#0F172A" },
     ] : [
-      { label: "My applications", value: totalApps.toLocaleString(), sub: "in selected range", color: "#16181D" },
+      { label: "My applications", value: totalApps.toLocaleString(), sub: "in selected range", color: "#0F172A" },
       { label: "My submissions", value: totalSubs.toLocaleString(), sub: subRate + "% of applications", color: "#4F46E5" },
-      { label: "Submission rate", value: subRate + "%", sub: "Applied → submitted to client", color: "#16181D" },
+      { label: "Submission rate", value: subRate + "%", sub: "Applied → submitted to client", color: "#0F172A" },
     ];
 
     /* trend chart */
@@ -284,7 +297,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
       const dRate = dApps.length ? Math.round((dSubs.length / dApps.length) * 100) : 0;
       drillData = {
         name: m?.name || "", total: dApps.length,
-        kpis: [{ label: "Applications", value: dApps.length, color: "#16181D" }, { label: "Submissions", value: dSubs.length, color: "#4F46E5" }, { label: "Submission rate", value: dRate + "%", color: "#16181D" }],
+        kpis: [{ label: "Applications", value: dApps.length, color: "#0F172A" }, { label: "Submissions", value: dSubs.length, color: "#4F46E5" }, { label: "Submission rate", value: dRate + "%", color: "#0F172A" }],
         rows: [...dApps].sort((a, b) => a.applied_date < b.applied_date ? 1 : -1).slice(0, 30).map(a => { const sc = statusColors(a.status); return { date: fmtDisplay(a.applied_date), candidateName: a.candidate_info || "—", jobTitle: a.job_title, portal: a.portal_name || "—", status: a.status, statusBg: sc.bg, statusColor: sc.color }; })
       };
     }
@@ -310,7 +323,6 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
     };
   }, [appsLoaded, applications, managers, portalsList, s.role, s.sortCol, s.sortDir, s.drillRecruiterId, s.jdModalAppId, s.logPage, s.logSearch, s.logPortalFilter, s.logStatusFilter, s.timeRange, s.customStart, s.customEnd]);
 
-  const tabBtn = (active) => ({ height: 28, padding: "0 14px", borderRadius: 6, border: "none", fontSize: 12.5, fontWeight: 600, cursor: "pointer", background: active ? "white" : "transparent", color: active ? "#4F46E5" : "#7B8094", boxShadow: active ? "0 1px 2px rgba(16,24,40,0.08)" : "none" });
   const sortToggle = (col, def) => { const same = s.sortCol === col; return { sortCol: col, sortDir: same && s.sortDir === def ? (def === "asc" ? "desc" : "asc") : def }; };
 
   const showOverviewLoading = s.tab === "overview" && !C.dataLoaded;
@@ -318,78 +330,73 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
   const isRecruiterMode = !isAdminMode;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F3F4F7", color: "#16181D" }}>
+    <div className="min-h-screen bg-surface text-dark font-sans">
 
-      {/* ── HEADER ── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#FFFFFF", borderBottom: "1px solid #E7E9EF" }}>
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      {/* ══ HEADER ══ */}
+      <div className="sticky top-0 z-20 bg-white border-b border-border shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+        <div className="max-w-[1440px] mx-auto px-8 py-3.5 flex items-center justify-between gap-4 flex-wrap">
           {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 8, background: "#4F46E5", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 15, flexShrink: 0 }}>CA</div>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm">CA</div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.15 }}>ConsultAdd Tracker</div>
-              <div style={{ fontSize: 11.5, color: "#7B8094", lineHeight: 1.3 }}>LinkedIn, resume & application tracking</div>
+              <div className="text-[15px] font-bold tracking-tight leading-tight">ConsultAdd Tracker</div>
+              <div className="text-[11.5px] text-muted leading-tight">LinkedIn, resume &amp; application tracking</div>
             </div>
           </div>
           {/* Controls */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div className="flex items-center gap-2 flex-wrap">
             {isAdminUser && s.tab === "overview" && (
-              <div style={{ display: "flex", background: "#F0F1F5", borderRadius: 8, padding: 3 }}>
-                <button style={tabBtn(isAdminMode)} onClick={() => set({ role: "admin", logPage: 1, drillRecruiterId: null })}>Admin view</button>
-                <button style={tabBtn(isRecruiterMode)} onClick={() => set(prev => ({ role: "recruiter", logPage: 1, drillRecruiterId: null, viewingRecruiterId: prev.viewingRecruiterId || managers[0]?.id || null }))}>My view</button>
+              <div className="flex bg-surface-alt rounded-lg p-1">
+                <button className={pillBtn(isAdminMode)} onClick={() => set({ role: "admin", logPage: 1, drillRecruiterId: null })}>Admin view</button>
+                <button className={pillBtn(isRecruiterMode)} onClick={() => set(prev => ({ role: "recruiter", logPage: 1, drillRecruiterId: null, viewingRecruiterId: prev.viewingRecruiterId || managers[0]?.id || null }))}>My view</button>
               </div>
             )}
             {isAdminUser && s.tab === "overview" && isRecruiterMode && (
               <select value={s.viewingRecruiterId || ""} onChange={e => set({ viewingRecruiterId: e.target.value, logPage: 1 })}
-                style={{ height: 34, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", padding: "0 10px", fontSize: 13, color: "#16181D", fontWeight: 600 }}>
+                className="h-8 rounded-lg border border-border bg-white px-2.5 text-[13px] font-semibold text-dark">
                 {managers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             )}
             {isAdminUser && (
-              <button onClick={() => set({ manageOpen: true, manageTab: "recruiters" })}
-                style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, fontWeight: 600, color: "#383B49", cursor: "pointer" }}>
-                Manage team & portals
+              <button onClick={() => set({ manageOpen: true, manageTab: "recruiters" })} className={ghostBtn}>
+                Manage team &amp; portals
               </button>
             )}
-            {/* Admin Panel link */}
             {isAdminUser && onOpenAdminPanel && (
               <button onClick={onOpenAdminPanel}
-                style={{ height: 34, padding: "0 14px", borderRadius: 8, border: "1px solid #4F46E5", background: "#EEF2FF", fontSize: 12.5, fontWeight: 600, color: "#4F46E5", cursor: "pointer" }}>
+                className="h-8 px-3.5 rounded-lg border border-primary/30 bg-primary-tint text-xs font-semibold text-primary hover:bg-primary/10 transition-colors">
                 Admin Panel
               </button>
             )}
             {/* User chip */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 8, borderLeft: "1px solid #E7E9EF" }}>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#4F46E5", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 11, flexShrink: 0 }}>{initials(user?.name)}</div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#16181D", lineHeight: 1.2, whiteSpace: "nowrap" }}>{user?.name || "User"}</div>
-                <div style={{ fontSize: 11, color: "#7B8094", lineHeight: 1.2 }}>{user?.role === "admin" ? "Admin" : "Account Manager"}</div>
+            <div className="flex items-center gap-2 pl-2.5 ml-1 border-l border-border">
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-[11px] flex-shrink-0">{initials(user?.name)}</div>
+              <div className="flex flex-col">
+                <div className="text-[12.5px] font-bold leading-tight whitespace-nowrap">{user?.name || "User"}</div>
+                <div className="text-[11px] text-muted leading-tight">{user?.role === "admin" ? "Admin" : "Account Manager"}</div>
               </div>
-              <button onClick={() => set({ changePwOpen: true, changePwOld: "", changePwNew: "", changePwConfirm: "", changePwError: "" })} title="Change password"
-                style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #E7E9EF", background: "white", fontSize: 12, fontWeight: 600, color: "#7B8094", cursor: "pointer", marginLeft: 2 }}>
+              <button onClick={() => set({ changePwOpen: true, changePwOld: "", changePwNew: "", changePwConfirm: "", changePwError: "" })} title="Change password" className="h-7 px-2.5 rounded-md border border-border bg-white text-[12px] font-semibold text-muted hover:bg-surface hover:text-dark transition-colors ml-0.5">
                 Pwd
               </button>
-              <button onClick={onLogout} title="Sign out"
-                style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #E7E9EF", background: "white", fontSize: 12, fontWeight: 600, color: "#7B8094", cursor: "pointer" }}>
+              <button onClick={onLogout} title="Sign out" className="h-7 px-2.5 rounded-md border border-border bg-white text-[12px] font-semibold text-muted hover:bg-surface hover:text-dark transition-colors">
                 Sign out
               </button>
             </div>
           </div>
         </div>
         {/* Section tabs */}
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px 13px", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+        <div className="max-w-[1440px] mx-auto px-8 pb-3 flex items-center gap-1.5 flex-wrap">
           {TABS.map(([key, label]) => {
             const active = s.tab === key;
             return (
               <React.Fragment key={key}>
                 {key === "linkedin" && (
                   <React.Fragment>
-                    <div style={{ width: 1, height: 20, background: "#E7E9EF", margin: "0 4px" }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#A1A5B3", textTransform: "uppercase", letterSpacing: 0.4, marginRight: 2 }}>Assets</span>
+                    <div className="w-px h-5 bg-border mx-1" />
+                    <span className="text-[11px] font-bold text-subtle uppercase tracking-wide mr-0.5">Assets</span>
                   </React.Fragment>
                 )}
-                <button onClick={() => set({ tab: key })}
-                  style={{ height: 32, padding: "0 14px", borderRadius: 8, border: `1px solid ${active ? "#4F46E5" : "#DDE0E8"}`, background: active ? "#4F46E5" : "white", color: active ? "white" : "#383B49", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={() => set({ tab: key })} className={chipBtn(active)}>
                   {label}
                 </button>
               </React.Fragment>
@@ -397,27 +404,22 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
           })}
           {s.tab === "overview" && (
             <>
-              <div style={{ width: 1, height: 20, background: "#E7E9EF", margin: "0 4px" }} />
-              {[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"],["sixmonth","6-Month"],["yearly","Yearly"],["custom","Custom"]].map(([key, label]) => {
-                const active = s.timeRange === key;
-                return (
-                  <button key={key} onClick={() => set({ timeRange: key, logPage: 1 })}
-                    style={{ height: 32, padding: "0 14px", borderRadius: 8, border: `1px solid ${active ? "#4F46E5" : "#DDE0E8"}`, background: active ? "#4F46E5" : "white", color: active ? "white" : "#383B49", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-                    {label}
-                  </button>
-                );
-              })}
+              <div className="w-px h-5 bg-border mx-1" />
+              {[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"],["sixmonth","6-Month"],["yearly","Yearly"],["custom","Custom"]].map(([key, label]) => (
+                <button key={key} onClick={() => set({ timeRange: key, logPage: 1 })} className={chipBtn(s.timeRange === key)}>
+                  {label}
+                </button>
+              ))}
               {s.timeRange === "custom" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}>
-                  <input type="date" value={s.customStart} onChange={e => set({ customStart: e.target.value, logPage: 1 })} style={{ height: 30, borderRadius: 6, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12 }} />
-                  <span style={{ color: "#A1A5B3", fontSize: 12 }}>to</span>
-                  <input type="date" value={s.customEnd} onChange={e => set({ customEnd: e.target.value, logPage: 1 })} style={{ height: 30, borderRadius: 6, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12 }} />
+                <div className="flex items-center gap-1.5 ml-1">
+                  <input type="date" value={s.customStart} onChange={e => set({ customStart: e.target.value, logPage: 1 })} className="h-8 rounded-lg border border-border px-2 text-xs" />
+                  <span className="text-subtle text-xs">to</span>
+                  <input type="date" value={s.customEnd} onChange={e => set({ customEnd: e.target.value, logPage: 1 })} className="h-8 rounded-lg border border-border px-2 text-xs" />
                 </div>
               )}
-              <div style={{ marginLeft: "auto", fontSize: 12, color: "#7B8094" }}>{C.rangeLabel}</div>
+              <div className="ml-auto text-xs text-muted">{C.rangeLabel}</div>
               {C.isAdmin && (
-                <button onClick={() => exportCsv(C.scopedApps, C.managerById)}
-                  style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, fontWeight: 600, color: "#383B49", cursor: "pointer" }}>
+                <button onClick={() => exportCsv(C.scopedApps, C.managerById)} className={ghostBtn}>
                   Export CSV
                 </button>
               )}
@@ -426,8 +428,8 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         </div>
       </div>
 
-      {/* ── BODY ── */}
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "24px 32px 60px" }}>
+      {/* ══ BODY ══ */}
+      <div className="max-w-[1440px] mx-auto px-8 py-6 pb-16">
 
         {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
         {s.tab === "resumes" && <Resumes user={user} />}
@@ -437,8 +439,8 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         {s.tab === "notes" && <DailyNotes user={user} />}
 
         {s.tab === "overview" && showOverviewLoading && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, color: "#7B8094", fontSize: 14, gap: 10 }}>
-            <span className="spin" style={{ display: "inline-block", width: 18, height: 18, border: "2px solid #E4E6EF", borderTopColor: "#4F46E5", borderRadius: "50%" }} />
+          <div className="flex items-center justify-center min-h-[300px] text-muted text-sm gap-2.5">
+            <span className="spin inline-block w-[18px] h-[18px] border-2 border-border rounded-full" style={{ borderTopColor: "#4F46E5", width: 18, height: 18 }} />
             Loading data…
           </div>
         )}
@@ -448,51 +450,51 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
           return (
             <>
               {/* KPI cards */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14, marginBottom: 20 }}>
+              <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))" }}>
                 {kpis.map((kpi, i) => (
-                  <div key={i} style={{ background: "white", borderRadius: 12, padding: "18px 20px", border: "1px solid #ECEDF2", boxShadow: "0 1px 2px rgba(16,24,40,0.04)" }}>
-                    <div style={{ fontSize: 12, color: "#7B8094", fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.03em" }}>{kpi.label}</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", color: kpi.color, lineHeight: 1.1 }}>{kpi.value}</div>
-                    <div style={{ fontSize: 12, color: "#A1A5B3", marginTop: 5 }}>{kpi.sub}</div>
+                  <div key={i} className="card p-5">
+                    <div className="text-[11.5px] text-muted font-semibold mb-2 uppercase tracking-wide">{kpi.label}</div>
+                    <div className="text-[28px] font-extrabold tracking-tight leading-none" style={{ color: kpi.color }}>{kpi.value}</div>
+                    <div className="text-xs text-subtle mt-1.5">{kpi.sub}</div>
                   </div>
                 ))}
               </div>
 
               {/* Charts row */}
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, marginBottom: 20 }}>
+              <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: "2fr 1fr" }}>
                 {/* Trend */}
-                <div style={{ background: "white", borderRadius: 12, padding: "20px 22px", border: "1px solid #ECEDF2" }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 2 }}>Applications vs. submissions over time</div>
-                  <div style={{ fontSize: 12, color: "#A1A5B3", marginBottom: 14 }}>{trendSubtitle}</div>
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: 160 }}>
+                <div className="card p-5">
+                  <div className="text-[13.5px] font-bold mb-0.5">Applications vs. submissions over time</div>
+                  <div className="text-xs text-subtle mb-3.5">{trendSubtitle}</div>
+                  <div className="flex items-end gap-1.5" style={{ height: 160 }}>
                     {trendBars.length === 0
-                      ? <div style={{ width: "100%", textAlign: "center", color: "#A1A5B3", fontSize: 13, alignSelf: "center" }}>No data in range</div>
+                      ? <div className="w-full text-center text-subtle text-sm self-center">No data in range</div>
                       : trendBars.map((b, i) => (
-                        <div key={i} title={b.tooltip} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", gap: 3 }}>
-                          <div style={{ width: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 2, height: "100%" }}>
-                            <div style={{ width: "45%", background: "#C7CBF7", borderRadius: "3px 3px 0 0", height: b.appH, minHeight: 2 }} />
-                            <div style={{ width: "45%", background: "#4F46E5", borderRadius: "3px 3px 0 0", height: b.subH, minHeight: 2 }} />
+                        <div key={i} title={b.tooltip} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                          <div className="w-full flex items-end justify-center gap-0.5 h-full">
+                            <div className="w-[45%] rounded-t bg-primary-ring" style={{ height: b.appH, minHeight: 2 }} />
+                            <div className="w-[45%] rounded-t bg-primary" style={{ height: b.subH, minHeight: 2 }} />
                           </div>
-                          <div style={{ fontSize: 10, color: "#A1A5B3", whiteSpace: "nowrap" }}>{b.label}</div>
+                          <div className="text-[10px] text-subtle whitespace-nowrap">{b.label}</div>
                         </div>
                       ))}
                   </div>
-                  <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#7B8094" }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "#C7CBF7", display: "inline-block" }} />Applications</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#7B8094" }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "#4F46E5", display: "inline-block" }} />Submissions</div>
+                  <div className="flex gap-4 mt-2.5">
+                    <div className="flex items-center gap-1.5 text-xs text-muted"><span className="w-2.5 h-2.5 rounded-sm bg-primary-ring inline-block" />Applications</div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted"><span className="w-2.5 h-2.5 rounded-sm bg-primary inline-block" />Submissions</div>
                   </div>
                 </div>
                 {/* Portal breakdown */}
-                <div style={{ background: "white", borderRadius: 12, padding: "20px 22px", border: "1px solid #ECEDF2" }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10 }}>By job portal</div>
-                  {portalBars.length === 0 && <div style={{ color: "#A1A5B3", fontSize: 13 }}>No applications in range</div>}
+                <div className="card p-5">
+                  <div className="text-[13.5px] font-bold mb-2.5">By job portal</div>
+                  {portalBars.length === 0 && <div className="text-subtle text-sm">No applications in range</div>}
                   {portalBars.slice(0, 9).map((p, i) => (
-                    <div key={i} style={{ marginBottom: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#383B49", marginBottom: 3 }}>
-                        <span>{p.portal}</span><span style={{ color: "#A1A5B3" }}>{p.count}</span>
+                    <div key={i} className="mb-2">
+                      <div className="flex justify-between text-xs text-medium mb-1">
+                        <span>{p.portal}</span><span className="text-subtle">{p.count}</span>
                       </div>
-                      <div style={{ background: "#F0F1F5", borderRadius: 4, height: 6 }}>
-                        <div style={{ background: "#7B78E8", width: p.pct + "%", height: "100%", borderRadius: 4 }} />
+                      <div className="bg-surface-alt rounded h-1.5">
+                        <div className="bg-[#818CF8] h-full rounded" style={{ width: p.pct + "%" }} />
                       </div>
                     </div>
                   ))}
@@ -501,40 +503,40 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
 
               {/* Team performance table (admin) */}
               {isAdmin && (
-                <div style={{ background: "white", borderRadius: 12, border: "1px solid #ECEDF2", overflow: "hidden", marginBottom: 20 }}>
-                  <div style={{ padding: "16px 22px", borderBottom: "1px solid #ECEDF2", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div className="card overflow-hidden mb-5">
+                  <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                     <div>
-                      <div style={{ fontSize: 14.5, fontWeight: 700 }}>Team performance</div>
-                      <div style={{ fontSize: 12, color: "#A1A5B3", marginTop: 2 }}>Click a row for that manager's submission log</div>
+                      <div className="text-[14.5px] font-bold">Team performance</div>
+                      <div className="text-xs text-subtle mt-0.5">Click a row for that manager's submission log</div>
                     </div>
-                    <div style={{ fontSize: 12, color: "#A1A5B3" }}>{teamCount} managers</div>
+                    <div className="text-xs text-subtle">{teamCount} managers</div>
                   </div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-[13px]">
                       <thead>
-                        <tr style={{ background: "#FAFAFC" }}>
-                          {[["name","Manager","left","asc","22px"],["applications","Applications","right","desc","14px"],["submissions","Submissions","right","desc","14px"],["rate","Sub. rate","right","desc","14px"]].map(([col, label, align, def, pad]) => (
-                            <th key={col} onClick={() => set(sortToggle(col, def))} style={{ textAlign: align, padding: `10px ${pad}`, color: "#7B8094", fontWeight: 600, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }}>
+                        <tr className="bg-surface-alt">
+                          {[["name","Manager","left","asc"],["applications","Applications","right","desc"],["submissions","Submissions","right","desc"],["rate","Sub. rate","right","desc"]].map(([col, label, align, def]) => (
+                            <th key={col} onClick={() => set(sortToggle(col, def))} className={`${th} cursor-pointer select-none ${align === "right" ? "text-right" : ""} ${col === "name" ? "pl-5" : ""}`}>
                               {label} {s.sortCol === col ? (s.sortDir === "asc" ? "↑" : "↓") : ""}
                             </th>
                           ))}
-                          <th style={{ textAlign: "left", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Top portal</th>
-                          <th style={{ textAlign: "left", padding: "10px 22px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Last active</th>
+                          <th className={th}>Top portal</th>
+                          <th className={`${th} pr-5`}>Last active</th>
                         </tr>
                       </thead>
                       <tbody>
                         {teamRows.map(row => (
-                          <tr key={row.id} className="team-row" onClick={() => set({ drillRecruiterId: row.id })} style={{ borderTop: "1px solid #F0F1F5", cursor: "pointer" }}>
-                            <td style={{ padding: "11px 22px", fontWeight: 600 }}>{row.name}</td>
-                            <td style={{ padding: "11px 14px", textAlign: "right" }}>{row.applications}</td>
-                            <td style={{ padding: "11px 14px", textAlign: "right" }}>{row.submissions}</td>
-                            <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 600, color: row.rateColor }}>{row.rate}</td>
-                            <td style={{ padding: "11px 14px", color: "#7B8094" }}>{row.topPortal}</td>
-                            <td style={{ padding: "11px 22px", color: "#7B8094" }}>{row.lastActive}</td>
+                          <tr key={row.id} className="team-row border-t border-border-soft cursor-pointer" onClick={() => set({ drillRecruiterId: row.id })}>
+                            <td className="px-4 pl-5 py-2.5 font-semibold">{row.name}</td>
+                            <td className="px-4 py-2.5 text-right">{row.applications}</td>
+                            <td className="px-4 py-2.5 text-right">{row.submissions}</td>
+                            <td className="px-4 py-2.5 text-right font-bold" style={{ color: row.rateColor }}>{row.rate}</td>
+                            <td className="px-4 py-2.5 text-muted">{row.topPortal}</td>
+                            <td className="px-4 pr-5 py-2.5 text-muted">{row.lastActive}</td>
                           </tr>
                         ))}
                         {teamRows.length === 0 && (
-                          <tr><td colSpan={6} style={{ padding: "24px 22px", textAlign: "center", color: "#A1A5B3", fontSize: 13 }}>No managers yet.</td></tr>
+                          <tr><td colSpan={6} className="px-5 py-6 text-center text-subtle text-sm">No managers yet.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -543,63 +545,66 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
               )}
 
               {/* Submissions table */}
-              <div style={{ background: "white", borderRadius: 12, border: "1px solid #ECEDF2", overflow: "hidden" }}>
-                <div style={{ padding: "16px 22px", borderBottom: "1px solid #ECEDF2", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div className="card overflow-hidden">
+                <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <div style={{ fontSize: 14.5, fontWeight: 700 }}>{isAdmin ? "All submissions & applications" : "My submission log"}</div>
-                    <div style={{ fontSize: 12, color: "#A1A5B3", marginTop: 2 }}>{C.logSource.length.toLocaleString()} records in range</div>
+                    <div className="text-[14.5px] font-bold">{isAdmin ? "All submissions & applications" : "My submission log"}</div>
+                    <div className="text-xs text-subtle mt-0.5">{C.logSource.length.toLocaleString()} records in range</div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <div className="flex gap-2 flex-wrap items-center">
                     <input placeholder="Search candidate or job title…" value={s.logSearch} onChange={e => set({ logSearch: e.target.value, logPage: 1 })}
-                      style={{ height: 32, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 10px", fontSize: 12.5, width: 200 }} />
-                    <select value={s.logPortalFilter} onChange={e => set({ logPortalFilter: e.target.value, logPage: 1 })} style={{ height: 32, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12.5 }}>
+                      className="h-8 rounded-lg border border-border px-2.5 text-xs" style={{ width: 200 }} />
+                    <select value={s.logPortalFilter} onChange={e => set({ logPortalFilter: e.target.value, logPage: 1 })} className="h-8 rounded-lg border border-border px-2 text-xs">
                       {portalFilterOptions.map(opt => <option key={opt} value={opt}>{opt === "all" ? "All portals" : opt}</option>)}
                     </select>
-                    <select value={s.logStatusFilter} onChange={e => set({ logStatusFilter: e.target.value, logPage: 1 })} style={{ height: 32, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 8px", fontSize: 12.5 }}>
+                    <select value={s.logStatusFilter} onChange={e => set({ logStatusFilter: e.target.value, logPage: 1 })} className="h-8 rounded-lg border border-border px-2 text-xs">
                       {statusFilterOptions.map(opt => <option key={opt} value={opt}>{opt === "all" ? "All statuses" : opt}</option>)}
                     </select>
                   </div>
                 </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-[12.5px]">
                     <thead>
-                      <tr style={{ background: "#FAFAFC" }}>
-                        <th style={{ textAlign: "left", padding: "10px 22px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Date</th>
-                        {isAdmin && <th style={{ textAlign: "left", padding: "10px 14px", color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>Manager</th>}
-                        {[["Candidate","14px"],["Job title","14px"],["Portal","14px"],["Resume","14px"],["Status","14px"],["JD","22px"]].map(([h, p]) => (
-                          <th key={h} style={{ textAlign: "left", padding: `10px ${p}`, color: "#7B8094", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>{h}</th>
-                        ))}
+                      <tr className="bg-surface-alt">
+                        <th className={`${th} pl-5`}>Date</th>
+                        {isAdmin && <th className={th}>Manager</th>}
+                        <th className={th}>Candidate</th>
+                        <th className={th}>Job title</th>
+                        <th className={th}>Portal</th>
+                        <th className={th}>Resume</th>
+                        <th className={th}>Status</th>
+                        <th className={`${th} pr-5`}>JD</th>
                       </tr>
                     </thead>
                     <tbody>
                       {logRows.map((row, i) => (
-                        <tr key={row.id || i} style={{ borderTop: "1px solid #F0F1F5" }}>
-                          <td style={{ padding: "10px 22px", color: "#383B49", whiteSpace: "nowrap" }}>{row.date}</td>
-                          {isAdmin && <td style={{ padding: "10px 14px", color: "#383B49", whiteSpace: "nowrap" }}>{row.recruiterName}</td>}
-                          <td style={{ padding: "10px 14px", color: "#383B49", whiteSpace: "nowrap" }}>{row.candidateName}</td>
-                          <td style={{ padding: "10px 14px", color: "#383B49", whiteSpace: "nowrap" }}>{row.jobTitle}</td>
-                          <td style={{ padding: "10px 14px", color: "#7B8094", whiteSpace: "nowrap" }}>{row.portal}</td>
-                          <td style={{ padding: "10px 14px", color: "#7B8094", whiteSpace: "nowrap", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>{row.resumeFile}</td>
-                          <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: row.statusBg, color: row.statusColor }}>{row.status}</span>
+                        <tr key={row.id || i} className="border-t border-border-soft hover:bg-surface transition-colors">
+                          <td className="px-4 pl-5 py-2.5 text-medium whitespace-nowrap">{row.date}</td>
+                          {isAdmin && <td className="px-4 py-2.5 text-medium whitespace-nowrap">{row.recruiterName}</td>}
+                          <td className="px-4 py-2.5 text-medium whitespace-nowrap">{row.candidateName}</td>
+                          <td className="px-4 py-2.5 text-medium whitespace-nowrap">{row.jobTitle}</td>
+                          <td className="px-4 py-2.5 text-muted whitespace-nowrap">{row.portal}</td>
+                          <td className="px-4 py-2.5 text-muted whitespace-nowrap truncate max-w-[180px]">{row.resumeFile}</td>
+                          <td className="px-4 py-2.5 whitespace-nowrap">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: row.statusBg, color: row.statusColor }}>{row.status}</span>
                           </td>
-                          <td style={{ padding: "10px 22px", whiteSpace: "nowrap" }}>
-                            <button onClick={() => set({ jdModalAppId: row.id })} style={{ height: 26, padding: "0 10px", borderRadius: 6, border: "1px solid #DDE0E8", background: "#FAFAFC", fontSize: 11.5, fontWeight: 600, color: "#4F46E5", cursor: "pointer" }}>View</button>
+                          <td className="px-4 pr-5 py-2.5 whitespace-nowrap">
+                            <button onClick={() => set({ jdModalAppId: row.id })} className="h-[26px] px-2.5 rounded-md border border-border bg-white text-[11.5px] font-semibold text-primary hover:bg-surface transition-colors" style={{ height: 26 }}>View</button>
                           </td>
                         </tr>
                       ))}
                       {logRows.length === 0 && (
-                        <tr><td colSpan={isAdmin ? 8 : 7} style={{ padding: "24px 22px", textAlign: "center", color: "#A1A5B3", fontSize: 13 }}>No records match your filters.</td></tr>
+                        <tr><td colSpan={isAdmin ? 8 : 7} className="px-5 py-6 text-center text-subtle text-sm">No records match your filters.</td></tr>
                       )}
                     </tbody>
                   </table>
                 </div>
-                <div style={{ padding: "13px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #ECEDF2" }}>
-                  <div style={{ fontSize: 12, color: "#A1A5B3" }}>{logCountLabel}</div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <button onClick={() => set({ logPage: Math.max(1, page - 1) })} disabled={page <= 1} style={{ height: 30, padding: "0 12px", borderRadius: 7, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, cursor: "pointer", color: "#383B49" }}>Prev</button>
-                    <div style={{ fontSize: 12.5, color: "#7B8094", padding: "0 4px" }}>Page {page} / {totalPages}</div>
-                    <button onClick={() => set({ logPage: Math.min(totalPages, page + 1) })} disabled={page >= totalPages} style={{ height: 30, padding: "0 12px", borderRadius: 7, border: "1px solid #DDE0E8", background: "white", fontSize: 12.5, cursor: "pointer", color: "#383B49" }}>Next</button>
+                <div className="px-5 py-3.5 flex items-center justify-between border-t border-border">
+                  <div className="text-xs text-subtle">{logCountLabel}</div>
+                  <div className="flex gap-1.5 items-center">
+                    <button onClick={() => set({ logPage: Math.max(1, page - 1) })} disabled={page <= 1} className={ghostBtn}>Prev</button>
+                    <div className="text-xs text-muted px-1">Page {page} / {totalPages}</div>
+                    <button onClick={() => set({ logPage: Math.min(totalPages, page + 1) })} disabled={page >= totalPages} className={ghostBtn}>Next</button>
                   </div>
                 </div>
               </div>
@@ -608,125 +613,123 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         })()}
       </div>
 
-      {/* ── DRILLDOWN MODAL ── */}
+      {/* ══ DRILLDOWN MODAL ══ */}
       {C.drillData && (
-        <div onClick={() => set({ drillRecruiterId: null })} style={{ position: "fixed", inset: 0, background: "rgba(16,20,30,0.45)", zIndex: 40, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflowY: "auto" }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#F3F4F7", borderRadius: 14, width: "100%", maxWidth: 900, overflow: "hidden" }}>
-            <div style={{ background: "white", padding: "20px 26px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ECEDF2" }}>
+        <div onClick={() => set({ drillRecruiterId: null })} className="fixed inset-0 bg-[rgba(15,23,42,0.5)] z-40 flex items-start justify-center overflow-y-auto" style={{ padding: "40px 20px" }}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface rounded-2xl w-full overflow-hidden shadow-popover" style={{ maxWidth: 900 }}>
+            <div className="bg-white px-6 py-5 flex items-center justify-between border-b border-border">
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>{C.drillData.name}</div>
-                <div style={{ fontSize: 12.5, color: "#A1A5B3", marginTop: 2 }}>{C.rangeLabel} performance detail</div>
+                <div className="text-base font-bold">{C.drillData.name}</div>
+                <div className="text-xs text-subtle mt-0.5">{C.rangeLabel} performance detail</div>
               </div>
-              <button onClick={() => set({ drillRecruiterId: null })} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", cursor: "pointer", fontSize: 15, color: "#7B8094" }}>✕</button>
+              <button onClick={() => set({ drillRecruiterId: null })} className={iconGhostBtn}>✕</button>
             </div>
-            <div style={{ padding: "20px 26px", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
+            <div className="p-6 grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))" }}>
               {C.drillData.kpis.map((kpi, i) => (
-                <div key={i} style={{ background: "white", borderRadius: 10, padding: "14px 16px", border: "1px solid #ECEDF2" }}>
-                  <div style={{ fontSize: 11.5, color: "#7B8094", fontWeight: 600, marginBottom: 6 }}>{kpi.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: kpi.color }}>{kpi.value}</div>
+                <div key={i} className="bg-white rounded-xl border border-border p-3.5">
+                  <div className="text-[11.5px] text-muted font-semibold mb-1.5">{kpi.label}</div>
+                  <div className="text-[22px] font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
                 </div>
               ))}
             </div>
-            <div style={{ padding: "0 26px 26px" }}>
-              <div style={{ background: "white", borderRadius: 10, border: "1px solid #ECEDF2", overflow: "hidden" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+            <div className="px-6 pb-6">
+              <div className="bg-white rounded-xl border border-border overflow-hidden">
+                <table className="w-full border-collapse text-[12.5px]">
                   <thead>
-                    <tr style={{ background: "#FAFAFC" }}>
+                    <tr className="bg-surface-alt">
                       {["Date","Candidate","Job title","Portal","Status"].map((h, i) => (
-                        <th key={h} style={{ textAlign: "left", padding: i === 0 || i === 4 ? "8px 16px" : "8px 12px", color: "#7B8094", fontWeight: 600, fontSize: 11.5 }}>{h}</th>
+                        <th key={h} className={`text-left py-2 text-[11.5px] font-semibold text-muted ${i === 0 || i === 4 ? "px-4" : "px-3"}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {C.drillData.rows.map((row, i) => (
-                      <tr key={i} style={{ borderTop: "1px solid #F0F1F5" }}>
-                        <td style={{ padding: "9px 16px", whiteSpace: "nowrap", color: "#383B49" }}>{row.date}</td>
-                        <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: "#383B49" }}>{row.candidateName}</td>
-                        <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: "#383B49" }}>{row.jobTitle}</td>
-                        <td style={{ padding: "9px 12px", whiteSpace: "nowrap", color: "#7B8094" }}>{row.portal}</td>
-                        <td style={{ padding: "9px 16px", whiteSpace: "nowrap" }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: row.statusBg, color: row.statusColor }}>{row.status}</span>
+                      <tr key={i} className="border-t border-border-soft">
+                        <td className="py-2.5 px-4 whitespace-nowrap text-medium">{row.date}</td>
+                        <td className="py-2.5 px-3 whitespace-nowrap text-medium">{row.candidateName}</td>
+                        <td className="py-2.5 px-3 whitespace-nowrap text-medium">{row.jobTitle}</td>
+                        <td className="py-2.5 px-3 whitespace-nowrap text-muted">{row.portal}</td>
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: row.statusBg, color: row.statusColor }}>{row.status}</span>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div style={{ fontSize: 11.5, color: "#A1A5B3", marginTop: 8 }}>Showing most recent {C.drillData.rows.length} of {C.drillData.total} records.</div>
+              <div className="text-[11.5px] text-subtle mt-2">Showing most recent {C.drillData.rows.length} of {C.drillData.total} records.</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── JD MODAL ── */}
+      {/* ══ JD MODAL ══ */}
       {C.jdModalData && (
-        <div onClick={() => set({ jdModalAppId: null })} style={{ position: "fixed", inset: 0, background: "rgba(16,20,30,0.45)", zIndex: 45, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "white", borderRadius: 14, width: "100%", maxWidth: 560, maxHeight: "80vh", overflowY: "auto" }}>
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid #ECEDF2", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div onClick={() => set({ jdModalAppId: null })} className="fixed inset-0 bg-[rgba(15,23,42,0.5)] z-[45] flex items-center justify-center p-6">
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-full overflow-y-auto shadow-popover" style={{ maxWidth: 560, maxHeight: "80vh" }}>
+            <div className="px-6 py-5 border-b border-border flex items-start justify-between gap-3">
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>{C.jdModalData.jobTitle}</div>
-                <div style={{ fontSize: 12.5, color: "#A1A5B3", marginTop: 4 }}>{C.jdModalData.candidateName} · {C.jdModalData.portal} · {C.jdModalData.date}</div>
+                <div className="text-[15px] font-bold">{C.jdModalData.jobTitle}</div>
+                <div className="text-xs text-subtle mt-1">{C.jdModalData.candidateName} · {C.jdModalData.portal} · {C.jdModalData.date}</div>
               </div>
-              <button onClick={() => set({ jdModalAppId: null })} style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", cursor: "pointer", fontSize: 14, color: "#7B8094" }}>✕</button>
+              <button onClick={() => set({ jdModalAppId: null })} className={`${iconGhostBtn} flex-shrink-0`}>✕</button>
             </div>
-            <div style={{ padding: "20px 24px", fontSize: 13.5, lineHeight: 1.6, color: "#383B49", whiteSpace: "pre-wrap" }}>{C.jdModalData.description}</div>
+            <div className="px-6 py-5 text-[13.5px] leading-relaxed text-medium whitespace-pre-wrap">{C.jdModalData.description}</div>
           </div>
         </div>
       )}
 
-      {/* ── MANAGE MODAL ── */}
+      {/* ══ MANAGE MODAL ══ */}
       {s.manageOpen && (
-        <div onClick={() => set({ manageOpen: false })} style={{ position: "fixed", inset: 0, background: "rgba(16,20,30,0.45)", zIndex: 45, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflowY: "auto" }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#F3F4F7", borderRadius: 14, width: "100%", maxWidth: 620, overflow: "hidden" }}>
-            <div style={{ background: "white", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ECEDF2" }}>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>Manage team & portals</div>
-              <button onClick={() => set({ manageOpen: false })} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #DDE0E8", background: "white", cursor: "pointer", fontSize: 14, color: "#7B8094" }}>✕</button>
+        <div onClick={() => set({ manageOpen: false })} className="fixed inset-0 bg-[rgba(15,23,42,0.5)] z-[45] flex items-start justify-center overflow-y-auto" style={{ padding: "40px 20px" }}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface rounded-2xl w-full overflow-hidden shadow-popover" style={{ maxWidth: 620 }}>
+            <div className="bg-white px-6 py-[18px] flex items-center justify-between border-b border-border">
+              <div className="text-[15px] font-bold">Manage team &amp; portals</div>
+              <button onClick={() => set({ manageOpen: false })} className={iconGhostBtn}>✕</button>
             </div>
-            <div style={{ display: "flex", gap: 4, padding: "14px 24px 0" }}>
+            <div className="flex gap-1 px-6 pt-3.5 bg-white">
               {[["recruiters",`Managers (${managers.length})`],["portals",`Portals (${portalsList.length})`]].map(([tab, label]) => (
                 <button key={tab} onClick={() => set({ manageTab: tab })}
-                  style={{ height: 30, padding: "0 14px", borderRadius: "7px 7px 0 0", border: "none", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: s.manageTab === tab ? "#F3F4F7" : "transparent", color: s.manageTab === tab ? "#16181D" : "#7B8094" }}>
+                  className={`h-8 px-3.5 rounded-t-lg text-xs font-bold transition-colors ${s.manageTab === tab ? "bg-surface text-dark" : "text-muted hover:text-dark"}`}>
                   {label}
                 </button>
               ))}
             </div>
             {s.manageTab === "recruiters" && (
-              <div style={{ padding: "16px 24px 24px" }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <div className="p-6">
+                <div className="flex gap-2 mb-3.5">
                   <input placeholder="New account manager name" value={s.newRecruiterName} onChange={e => set({ newRecruiterName: e.target.value })} onKeyDown={e => e.key === "Enter" && addRecruiter()}
-                    style={{ flex: 1, height: 34, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 10px", fontSize: 12.5 }} />
-                  <button onClick={addRecruiter} disabled={s.manageLoading}
-                    style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "none", background: "#4F46E5", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                    className="flex-1 h-9 rounded-lg border border-border px-2.5 text-xs bg-white" />
+                  <button onClick={addRecruiter} disabled={s.manageLoading} className="btn-primary text-xs">
                     {s.manageLoading ? "…" : "Add"}
                   </button>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+                <div className="flex flex-col gap-1.5 overflow-y-auto" style={{ maxHeight: 320 }}>
                   {managers.map(m => (
-                    <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "white", border: "1px solid #ECEDF2", borderRadius: 8, padding: "9px 14px" }}>
+                    <div key={m.id} className="flex items-center justify-between bg-white border border-border rounded-lg px-3.5 py-2.5">
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
-                        <div style={{ fontSize: 11.5, color: "#A1A5B3" }}>{m.email}</div>
+                        <div className="text-[13px] font-semibold">{m.name}</div>
+                        <div className="text-[11.5px] text-subtle">{m.email}</div>
                       </div>
                       <button onClick={() => deleteRecruiter(m.id, m.name)}
-                        style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", cursor: "pointer", fontSize: 13 }}>✕</button>
+                        className="w-7 h-7 rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-[13px]">✕</button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
             {s.manageTab === "portals" && (
-              <div style={{ padding: "16px 24px 24px" }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <div className="p-6">
+                <div className="flex gap-2 mb-3.5">
                   <input placeholder="New portal name" value={s.newPortalName} onChange={e => set({ newPortalName: e.target.value })} onKeyDown={e => e.key === "Enter" && addPortal()}
-                    style={{ flex: 1, height: 34, borderRadius: 8, border: "1px solid #DDE0E8", padding: "0 10px", fontSize: 12.5 }} />
-                  <button onClick={addPortal}
-                    style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "none", background: "#4F46E5", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>Add</button>
+                    className="flex-1 h-9 rounded-lg border border-border px-2.5 text-xs bg-white" />
+                  <button onClick={addPortal} className="btn-primary text-xs">Add</button>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <div className="flex flex-wrap gap-2">
                   {portalsList.map(p => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #ECEDF2", borderRadius: 999, padding: "6px 8px 6px 14px" }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: "#383B49" }}>{p.name}</span>
-                      <button onClick={() => deletePortal(p)} style={{ width: 20, height: 20, borderRadius: "50%", border: "none", background: "#F1F2F6", color: "#7B8094", cursor: "pointer", fontSize: 11 }}>✕</button>
+                    <div key={p.id} className="flex items-center gap-2 bg-white border border-border rounded-full py-1.5 pl-3.5 pr-1.5">
+                      <span className="text-xs font-semibold text-medium">{p.name}</span>
+                      <button onClick={() => deletePortal(p)} className="w-5 h-5 rounded-full bg-surface-alt text-muted hover:bg-slate-200 transition-colors text-[11px]">✕</button>
                     </div>
                   ))}
                 </div>
@@ -736,33 +739,31 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         </div>
       )}
 
-      {/* ── CHANGE PASSWORD MODAL ── */}
+      {/* ══ CHANGE PASSWORD MODAL ══ */}
       {s.changePwOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(22,24,29,0.45)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        <div className="fixed inset-0 bg-[rgba(15,23,42,0.5)] z-[70] flex items-center justify-center p-4"
           onClick={e => { if (e.target === e.currentTarget) set({ changePwOpen: false }); }}>
-          <div style={{ background: "white", borderRadius: 14, width: "100%", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px 14px", borderBottom: "1px solid #ECEDF2" }}>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>Change Password</div>
-              <button onClick={() => set({ changePwOpen: false })} style={{ width: 28, height: 28, borderRadius: "50%", border: "none", background: "#F0F1F5", color: "#7B8094", cursor: "pointer", fontSize: 14 }}>✕</button>
+          <div className="bg-white rounded-2xl w-full shadow-popover" style={{ maxWidth: 400 }}>
+            <div className="flex items-center justify-between px-[22px] py-4 border-b border-border">
+              <div className="text-[15px] font-bold">Change Password</div>
+              <button onClick={() => set({ changePwOpen: false })} className="w-7 h-7 rounded-full bg-surface-alt text-muted hover:bg-slate-200 transition-colors text-sm">✕</button>
             </div>
-            <form onSubmit={handleChangePw} style={{ padding: "18px 22px 22px" }}>
+            <form onSubmit={handleChangePw} className="p-[22px]">
               {s.changePwError && (
-                <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 12.5, borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>{s.changePwError}</div>
+                <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2 mb-3.5">{s.changePwError}</div>
               )}
               {[
                 { label: "Current password", key: "changePwOld" },
                 { label: "New password", key: "changePwNew", hint: "Min. 8 characters" },
                 { label: "Confirm new password", key: "changePwConfirm" },
               ].map(({ label, key, hint }) => (
-                <div key={key} style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#383B49", marginBottom: 5 }}>{label}</div>
+                <div key={key} className="mb-3.5">
+                  <div className="text-xs font-semibold text-medium mb-1">{label}</div>
                   <input type="password" value={s[key]} onChange={e => set({ [key]: e.target.value })} required minLength={key !== "changePwOld" ? 8 : undefined}
-                    placeholder={hint || ""}
-                    style={{ width: "100%", height: 36, border: "1px solid #DDE0E8", borderRadius: 8, padding: "0 10px", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+                    placeholder={hint || ""} className="input" />
                 </div>
               ))}
-              <button type="submit" disabled={s.changePwLoading}
-                style={{ width: "100%", height: 38, borderRadius: 8, border: "none", background: "#4F46E5", color: "white", fontSize: 13.5, fontWeight: 700, cursor: s.changePwLoading ? "not-allowed" : "pointer", opacity: s.changePwLoading ? 0.6 : 1, marginTop: 4 }}>
+              <button type="submit" disabled={s.changePwLoading} className="btn-primary w-full mt-1">
                 {s.changePwLoading ? "Saving…" : "Update Password"}
               </button>
             </form>
@@ -770,9 +771,9 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         </div>
       )}
 
-      {/* ── TOAST ── */}
+      {/* ══ TOAST ══ */}
       {s.toast && (
-        <div className="toast-anim" style={{ position: "fixed", bottom: 24, right: 24, background: "#16181D", color: "white", padding: "12px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.2)", zIndex: 60 }}>
+        <div className="toast-anim fixed bottom-6 right-6 bg-dark text-white px-[18px] py-3 rounded-xl text-sm font-semibold shadow-popover z-[60]">
           {s.toast}
         </div>
       )}

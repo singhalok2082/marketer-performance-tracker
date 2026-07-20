@@ -166,14 +166,14 @@ export default function JobApplications({ user }) {
             {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <button onClick={showForm ? () => setShowForm(false) : startAdd}
-            className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold">
+            className="btn-primary">
             {showForm ? "Cancel" : "+ Log Application"}
           </button>
         </div>
       </div>
 
       {showForm && (
-        <form onSubmit={submit} className="bg-white rounded-xl border border-border p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={submit} className="card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium mb-1">Portal</label>
             <select value={form.portal_id} onChange={e => setForm(f => ({ ...f, portal_id: e.target.value }))} className="w-full h-9 rounded-lg border border-border px-3 text-sm">
@@ -258,14 +258,14 @@ export default function JobApplications({ user }) {
             <textarea rows={4} value={form.job_description} onChange={e => setForm(f => ({ ...f, job_description: e.target.value }))} className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
           </div>
           <div className="sm:col-span-2 flex justify-end">
-            <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-40">
+            <button type="submit" disabled={saving} className="btn-primary disabled:opacity-40">
               {saving ? "Saving…" : editingId ? "Save changes" : "Log application"}
             </button>
           </div>
         </form>
       )}
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="text-center py-10 text-muted">Loading…</div>
         ) : apps.length === 0 ? (
@@ -274,20 +274,20 @@ export default function JobApplications({ user }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-surface text-left">
-                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted">Manager</th>}
-                  <th className="px-4 py-2.5 font-semibold text-muted">Date</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Job title</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Candidate</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Portal</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Resume</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Status</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted text-right">Actions</th>
+                <tr className="bg-surface-alt text-left">
+                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Manager</th>}
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Date</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Job title</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Candidate</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Portal</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Resume</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Status</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {apps.map(a => (
-                  <tr key={a.id} className="border-t border-border">
+                  <tr key={a.id} className="border-t border-border hover:bg-surface transition-colors">
                     {isAdmin && <td className="px-4 py-2.5">{a.user_name || "—"}</td>}
                     <td className="px-4 py-2.5 text-muted whitespace-nowrap">{a.applied_date}</td>
                     <td className="px-4 py-2.5 font-medium">
@@ -349,7 +349,7 @@ export default function JobApplications({ user }) {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-sm text-muted p-6 text-center">
                   <div>This link can't be previewed inline.</div>
-                  <a href={viewer.url} target="_blank" rel="noreferrer" className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold inline-flex items-center">Open link</a>
+                  <a href={viewer.url} target="_blank" rel="noreferrer" className="btn-primary inline-flex items-center">Open link</a>
                 </div>
               )}
             </div>

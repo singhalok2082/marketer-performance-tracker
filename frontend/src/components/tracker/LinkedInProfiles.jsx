@@ -88,14 +88,14 @@ export default function LinkedInProfiles({ user }) {
             </select>
           )}
           <button onClick={showForm ? () => setShowForm(false) : startAdd}
-            className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold">
+            className="btn-primary">
             {showForm ? "Cancel" : "+ Add LinkedIn Profile"}
           </button>
         </div>
       </div>
 
       {showForm && (
-        <form onSubmit={submit} className="bg-white rounded-xl border border-border p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={submit} className="card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium mb-1">LinkedIn URL *</label>
             <input required type="url" value={form.linkedin_url} onChange={e => setForm(f => ({ ...f, linkedin_url: e.target.value }))}
@@ -117,14 +117,14 @@ export default function LinkedInProfiles({ user }) {
               className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
           </div>
           <div className="sm:col-span-2 flex justify-end">
-            <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-40">
+            <button type="submit" disabled={saving} className="btn-primary disabled:opacity-40">
               {saving ? "Saving…" : editingId ? "Save changes" : "Add profile"}
             </button>
           </div>
         </form>
       )}
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="text-center py-10 text-muted">Loading…</div>
         ) : profiles.length === 0 ? (
@@ -133,18 +133,18 @@ export default function LinkedInProfiles({ user }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-surface text-left">
-                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted">Manager</th>}
-                  <th className="px-4 py-2.5 font-semibold text-muted">Title</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">LinkedIn URL</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Location</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted text-right">Connections</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted text-right">Actions</th>
+                <tr className="bg-surface-alt text-left">
+                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Manager</th>}
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Title</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">LinkedIn URL</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Location</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Connections</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {profiles.map(p => (
-                  <tr key={p.id} className="border-t border-border">
+                  <tr key={p.id} className="border-t border-border hover:bg-surface transition-colors">
                     {isAdmin && <td className="px-4 py-2.5">{p.user_name || "—"}</td>}
                     <td className="px-4 py-2.5 font-medium">{p.title}</td>
                     <td className="px-4 py-2.5 truncate max-w-[240px]">

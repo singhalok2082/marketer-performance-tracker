@@ -123,14 +123,14 @@ export default function VendorActivities({ user }) {
             </select>
           )}
           <button onClick={showForm ? () => setShowForm(false) : startAdd}
-            className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold">
+            className="btn-primary">
             {showForm ? "Cancel" : `+ Log ${TYPES.find(t => t.key === activeType)?.label.replace(/s$/, "")}`}
           </button>
         </div>
       </div>
 
       {showForm && (
-        <form onSubmit={submit} className="bg-white rounded-xl border border-border p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={submit} className="card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {isRich && (
             <>
               <div>
@@ -200,14 +200,14 @@ export default function VendorActivities({ user }) {
             <textarea rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
           </div>
           <div className="sm:col-span-2 flex justify-end">
-            <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-40">
+            <button type="submit" disabled={saving} className="btn-primary disabled:opacity-40">
               {saving ? "Saving…" : editingId ? "Save changes" : "Log entry"}
             </button>
           </div>
         </form>
       )}
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="text-center py-10 text-muted">Loading…</div>
         ) : rows.length === 0 ? (
@@ -216,21 +216,21 @@ export default function VendorActivities({ user }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-surface text-left">
-                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted">Manager</th>}
-                  <th className="px-4 py-2.5 font-semibold text-muted">Date</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Vendor</th>
-                  {isRich && <th className="px-4 py-2.5 font-semibold text-muted">Candidate</th>}
-                  {isRich && <th className="px-4 py-2.5 font-semibold text-muted">Job title</th>}
-                  {isRich && <th className="px-4 py-2.5 font-semibold text-muted text-right">Rate</th>}
-                  {activeType === "vendor_call" && <th className="px-4 py-2.5 font-semibold text-muted text-right">Duration</th>}
-                  <th className="px-4 py-2.5 font-semibold text-muted">Notes</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted text-right">Actions</th>
+                <tr className="bg-surface-alt text-left">
+                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Manager</th>}
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Date</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Vendor</th>
+                  {isRich && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Candidate</th>}
+                  {isRich && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Job title</th>}
+                  {isRich && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Rate</th>}
+                  {activeType === "vendor_call" && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Duration</th>}
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Notes</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map(r => (
-                  <tr key={r.id} className="border-t border-border">
+                  <tr key={r.id} className="border-t border-border hover:bg-surface transition-colors">
                     {isAdmin && <td className="px-4 py-2.5">{r.user_name || "—"}</td>}
                     <td className="px-4 py-2.5 text-muted whitespace-nowrap">
                       {r.activity_date}{r.imported_placeholder && <span className="ml-1.5 text-xs text-amber-600">(imported)</span>}

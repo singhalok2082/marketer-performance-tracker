@@ -57,12 +57,12 @@ export default function DailyNotes({ user }) {
       )}
 
       {!isAdmin && (
-        <div className="bg-white rounded-xl border border-border p-5">
+        <div className="card p-5">
           <label className="block text-sm font-semibold mb-2">What's blocking you today?</label>
           <textarea rows={3} value={todayText} onChange={e => setTodayText(e.target.value)}
             placeholder="Any challenge you're facing today…" className="w-full rounded-lg border border-border px-3 py-2 text-sm mb-3" />
           <div className="flex justify-end">
-            <button onClick={saveToday} disabled={saving} className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-40">
+            <button onClick={saveToday} disabled={saving} className="btn-primary disabled:opacity-40">
               {saving ? "Saving…" : "Save today's note"}
             </button>
           </div>
@@ -80,7 +80,7 @@ export default function DailyNotes({ user }) {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="text-center py-10 text-muted">Loading…</div>
         ) : notes.length === 0 ? (
@@ -88,7 +88,7 @@ export default function DailyNotes({ user }) {
         ) : (
           <ul className="divide-y divide-border">
             {notes.filter(n => n.challenge_text).map(n => (
-              <li key={n.id} className="px-5 py-3">
+              <li key={n.id} className="px-5 py-3 hover:bg-surface transition-colors">
                 <div className="flex items-center justify-between gap-3 mb-1">
                   <span className="text-xs font-semibold text-muted">{n.note_date}{isAdmin && n.user_name ? ` · ${n.user_name}` : ""}</span>
                 </div>

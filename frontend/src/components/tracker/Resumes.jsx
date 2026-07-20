@@ -132,14 +132,14 @@ export default function Resumes({ user }) {
             <option value="all">All</option>
           </select>
           <button onClick={() => { setShowForm(o => !o); if (showForm) resetForm(); }}
-            className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold">
+            className="btn-primary">
             {showForm ? "Cancel" : "+ Add Resume"}
           </button>
         </div>
       </div>
 
       {showForm && (
-        <form onSubmit={submit} className="bg-white rounded-xl border border-border p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={submit} className="card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2 flex gap-2">
             <button type="button" onClick={() => setMode("file")}
               className={`h-8 px-3 rounded-lg text-xs font-semibold border ${mode === "file" ? "bg-primary text-white border-primary" : "border-border text-muted"}`}>
@@ -187,14 +187,14 @@ export default function Resumes({ user }) {
             </div>
           )}
           <div className="sm:col-span-2 flex justify-end">
-            <button type="submit" disabled={saving} className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-40">
+            <button type="submit" disabled={saving} className="btn-primary disabled:opacity-40">
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </form>
       )}
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="text-center py-10 text-muted">Loading…</div>
         ) : resumes.length === 0 ? (
@@ -203,19 +203,19 @@ export default function Resumes({ user }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-surface text-left">
-                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted">Manager</th>}
-                  <th className="px-4 py-2.5 font-semibold text-muted">Title</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Tech stack</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Source</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Added</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted">Status</th>
-                  <th className="px-4 py-2.5 font-semibold text-muted text-right">Actions</th>
+                <tr className="bg-surface-alt text-left">
+                  {isAdmin && <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Manager</th>}
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Title</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Tech stack</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Source</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Added</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Status</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {resumes.map(r => (
-                  <tr key={r.id} className="border-t border-border">
+                  <tr key={r.id} className="border-t border-border hover:bg-surface transition-colors">
                     {isAdmin && <td className="px-4 py-2.5">{r.user_name || "—"}</td>}
                     <td className="px-4 py-2.5 font-medium">{r.title}</td>
                     <td className="px-4 py-2.5 text-muted">{r.tech_stack || "—"}</td>
@@ -261,7 +261,7 @@ export default function Resumes({ user }) {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-sm text-muted p-6 text-center">
                   <div>This link can't be previewed inline.</div>
-                  <a href={viewer.url} target="_blank" rel="noreferrer" className="h-9 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold inline-flex items-center">Open link</a>
+                  <a href={viewer.url} target="_blank" rel="noreferrer" className="btn-primary inline-flex items-center">Open link</a>
                 </div>
               )}
             </div>
