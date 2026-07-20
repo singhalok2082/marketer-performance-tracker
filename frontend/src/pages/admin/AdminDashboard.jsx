@@ -82,16 +82,16 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-surface flex flex-col font-sans">
       {/* Top header */}
-      <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-20">
+      <header className="bg-zinc-900 border-b border-zinc-800 text-white sticky top-0 z-20">
         <div className="px-5 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(o => !o)} className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+            <button onClick={() => setSidebarOpen(o => !o)} className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-zinc-800 transition-colors">
               <Menu size={19} />
             </button>
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center font-bold text-sm shadow-sm">CA</div>
+            <div className="w-8 h-8 rounded-lg bg-white text-zinc-900 flex items-center justify-center font-bold text-sm shadow-sm">CA</div>
             <div>
               <div className="text-sm font-bold tracking-tight">ConsultAdd Tracker</div>
-              <div className="text-[11px] text-slate-400">Admin Security Panel</div>
+              <div className="text-[11px] text-zinc-400">Admin Security Panel</div>
             </div>
           </div>
 
@@ -105,19 +105,19 @@ export default function AdminDashboard() {
             )}
             <button
               onClick={() => setShowPanel(false)}
-              className="flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded-lg transition-colors">
+              className="flex items-center gap-1.5 text-xs font-medium text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500 px-3 py-1.5 rounded-lg transition-colors">
               <ArrowLeft size={13} /> Dashboard
             </button>
-            <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-1.5">
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
+            <div className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-1.5">
+              <div className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold">
                 {user?.name?.split(" ").map(w => w[0]).slice(0,2).join("")}
               </div>
               <div className="hidden sm:block">
                 <div className="text-xs font-semibold">{user?.name}</div>
-                <div className="text-[11px] text-slate-400">Admin</div>
+                <div className="text-[11px] text-zinc-400">Admin</div>
               </div>
             </div>
-            <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded-lg">
+            <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs font-medium text-zinc-300 hover:text-white transition-colors border border-zinc-700 hover:border-zinc-500 px-3 py-1.5 rounded-lg">
               <LogOut size={13} /> Sign out
             </button>
           </div>
@@ -126,16 +126,16 @@ export default function AdminDashboard() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <nav className={`bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-200 ${sidebarOpen ? "w-56" : "w-0 overflow-hidden"}`}>
+        <nav className={`bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-200 ${sidebarOpen ? "w-56" : "w-0 overflow-hidden"}`}>
           <div className="p-3 space-y-0.5 flex-1 overflow-y-auto">
             {TABS.map(t => (
               <React.Fragment key={t.id}>
                 {t.id === "linkedin" && (
-                  <div className="px-3 pt-4 pb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-slate-500">Assets</div>
+                  <div className="px-3 pt-4 pb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-zinc-500">Assets</div>
                 )}
                 <button onClick={() => setTab(t.id)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors text-left ${
-                    tab === t.id ? "bg-primary text-white shadow-sm" : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  className={`w-full flex items-center gap-2.5 pl-2.5 pr-3 py-2.5 rounded-md text-[13px] transition-colors text-left border-l-2 ${
+                    tab === t.id ? "bg-zinc-800 text-white font-semibold border-white" : "text-zinc-400 hover:text-white hover:bg-zinc-800/60 font-medium border-transparent"
                   }`}>
                   <t.Icon size={16} strokeWidth={2} className="flex-shrink-0" />
                   <span>{t.label}</span>
