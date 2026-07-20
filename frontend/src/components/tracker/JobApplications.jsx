@@ -115,6 +115,20 @@ export default function JobApplications({ user }) {
     }
   };
 
+  const previewLocalFile = (file) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      alert("Only PDF files can be previewed before saving — DOC/DOCX preview will be available right after you save.");
+      return;
+    }
+    setViewer({ url: URL.createObjectURL(file), file_type: "pdf", file_name: file.name, is_drive_link: false });
+  };
+
+  const previewLocalDriveLink = (link) => {
+    if (!link.trim()) return;
+    setViewer({ url: link.trim(), file_name: "Google Drive preview", is_drive_link: true });
+  };
+
   const remove = async (a) => {
     if (!confirm(`Remove application for "${a.job_title}"?`)) return;
     try {
@@ -190,10 +204,16 @@ export default function JobApplications({ user }) {
               ))}
             </div>
             {resumeMode === "existing" && (
-              <select value={form.resume_id} onChange={e => setForm(f => ({ ...f, resume_id: e.target.value }))} className="w-full h-9 rounded-lg border border-border px-3 text-sm">
-                <option value="">None</option>
-                {resumes.map(r => <option key={r.id} value={r.id}>{r.title} {r.file_name ? `(${r.file_name})` : "(Drive link)"}</option>)}
-              </select>
+              <div className="flex gap-2">
+                <select value={form.resume_id} onChange={e => setForm(f => ({ ...f, resume_id: e.target.value }))} className="flex-1 h-9 rounded-lg border border-border px-3 text-sm">
+                  <option value="">None</option>
+                  {resumes.map(r => <option key={r.id} value={r.id}>{r.title} {r.file_name ? `(${r.file_name})` : "(Drive link)"}</option>)}
+                </select>
+                {form.resume_id && (
+                  <button type="button" onClick={() => previewResume(form.resume_id)}
+                    className="h-9 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface flex-shrink-0">Preview</button>
+                )}
+              </div>
             )}
             {resumeMode !== "existing" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -202,11 +222,23 @@ export default function JobApplications({ user }) {
                 <input required value={newResume.tech_stack} onChange={e => setNewResume(f => ({ ...f, tech_stack: e.target.value }))}
                   placeholder="Tech stack *" className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
                 {resumeMode === "upload" ? (
-                  <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setNewResume(f => ({ ...f, file: e.target.files?.[0] || null }))}
-                    className="w-full text-sm sm:col-span-2" />
+                  <div className="sm:col-span-2 flex gap-2 items-center">
+                    <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setNewResume(f => ({ ...f, file: e.target.files?.[0] || null }))}
+                      className="flex-1 text-sm" />
+                    {newResume.file && (
+                      <button type="button" onClick={() => previewLocalFile(newResume.file)}
+                        className="h-9 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface flex-shrink-0">Preview</button>
+                    )}
+                  </div>
                 ) : (
-                  <input required type="url" value={newResume.drive_link} onChange={e => setNewResume(f => ({ ...f, drive_link: e.target.value }))}
-                    placeholder="https://drive.google.com/file/d/…" className="w-full h-9 rounded-lg border border-border px-3 text-sm sm:col-span-2" />
+                  <div className="sm:col-span-2 flex gap-2">
+                    <input required type="url" value={newResume.drive_link} onChange={e => setNewResume(f => ({ ...f, drive_link: e.target.value }))}
+                      placeholder="https://drive.google.com/file/d/…" className="flex-1 h-9 rounded-lg border border-border px-3 text-sm" />
+                    {newResume.drive_link.trim() && (
+                      <button type="button" onClick={() => previewLocalDriveLink(newResume.drive_link)}
+                        className="h-9 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface flex-shrink-0">Preview</button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -263,9 +295,13 @@ export default function JobApplications({ user }) {
                     </td>
                     <td className="px-4 py-2.5 text-muted truncate max-w-[160px]">{a.candidate_info || "—"}</td>
                     <td className="px-4 py-2.5">{a.portal_name || "—"}</td>
-                    <td className="px-4 py-2.5 text-muted truncate max-w-[160px]">
+                    <td className="px-4 py-2.5 text-muted">
                       {a.resume_id ? (
-                        <button onClick={() => previewResume(a.resume_id)} className="text-primary hover:underline">{a.resume_title || "Preview"}</button>
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate max-w-[110px]">{a.resume_title || "Resume"}</span>
+                          <button onClick={() => previewResume(a.resume_id)}
+                            className="text-xs font-semibold px-2 py-0.5 rounded-lg border border-border hover:bg-surface flex-shrink-0 text-dark">Preview</button>
+                        </div>
                       ) : "—"}
                     </td>
                     <td className="px-4 py-2.5"><span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors(a.status)}`}>{a.status}</span></td>

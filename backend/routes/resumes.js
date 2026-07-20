@@ -11,9 +11,11 @@ const MIME_TO_TYPE = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 };
 
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
     if (MIME_TO_TYPE[file.mimetype]) cb(null, true);
     else cb(new Error("Only PDF, DOC, or DOCX files are allowed"));
@@ -45,7 +47,12 @@ router.get("/", requireAuth, async (req, res) => {
 
 router.post("/", requireAuth, (req, res) => {
   upload.single("file")(req, res, async (uploadErr) => {
-    if (uploadErr) return res.status(400).json({ error: uploadErr.message });
+    if (uploadErr) {
+      if (uploadErr.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: `File is too large — max ${MAX_FILE_SIZE / (1024 * 1024)}MB` });
+      }
+      return res.status(400).json({ error: uploadErr.message });
+    }
     if (!req.body.title?.trim()) return res.status(400).json({ error: "Title is required" });
     if (!req.body.tech_stack?.trim()) return res.status(400).json({ error: "Tech stack is required" });
 

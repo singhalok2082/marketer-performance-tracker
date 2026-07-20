@@ -69,6 +69,20 @@ export default function Resumes({ user }) {
     }
   };
 
+  const previewLocalFile = () => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      alert("Only PDF files can be previewed before saving — DOC/DOCX preview will be available right after you save.");
+      return;
+    }
+    setViewer({ url: URL.createObjectURL(file), file_type: "pdf", file_name: file.name, title, is_drive_link: false });
+  };
+
+  const previewLocalDriveLink = () => {
+    if (!driveLink.trim()) return;
+    setViewer({ url: driveLink.trim(), file_name: "Google Drive preview", title, is_drive_link: true });
+  };
+
   const toggleActive = async (r) => {
     try {
       await api.patch(`/resumes/${r.id}`, { is_active: !r.is_active });
@@ -149,14 +163,26 @@ export default function Resumes({ user }) {
           {mode === "file" ? (
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium mb-1">File (PDF, DOC, DOCX) *</label>
-              <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] || null)}
-                className="w-full text-sm" />
+              <div className="flex gap-2 items-center">
+                <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setFile(e.target.files?.[0] || null)}
+                  className="flex-1 text-sm" />
+                {file && (
+                  <button type="button" onClick={previewLocalFile}
+                    className="h-9 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface flex-shrink-0">Preview</button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium mb-1">Google Drive link *</label>
-              <input required type="url" value={driveLink} onChange={e => setDriveLink(e.target.value)}
-                placeholder="https://drive.google.com/file/d/…" className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
+              <div className="flex gap-2">
+                <input required type="url" value={driveLink} onChange={e => setDriveLink(e.target.value)}
+                  placeholder="https://drive.google.com/file/d/…" className="flex-1 h-9 rounded-lg border border-border px-3 text-sm" />
+                {driveLink.trim() && (
+                  <button type="button" onClick={previewLocalDriveLink}
+                    className="h-9 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface flex-shrink-0">Preview</button>
+                )}
+              </div>
               <p className="text-xs text-muted mt-1">Make sure sharing is set to "Anyone with the link" so it can be previewed in the portal.</p>
             </div>
           )}
