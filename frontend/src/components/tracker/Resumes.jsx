@@ -221,7 +221,7 @@ export default function Resumes({ user }) {
                     <td className="px-4 py-2.5 text-muted">{r.tech_stack || "—"}</td>
                     <td className="px-4 py-2.5 text-muted truncate max-w-[220px]">
                       {r.google_drive_link
-                        ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700">🔗 Google Drive</span>
+                        ? <a href={r.google_drive_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline">🔗 Google Drive</a>
                         : <>{r.file_name} <span className="uppercase text-xs">({r.file_type})</span></>}
                     </td>
                     <td className="px-4 py-2.5 text-muted">{new Date(r.created_at).toLocaleDateString()}</td>
