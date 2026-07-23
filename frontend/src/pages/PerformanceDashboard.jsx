@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import api from "../api/client";
 import LinkedInProfiles from "../components/tracker/LinkedInProfiles";
 import Resumes from "../components/tracker/Resumes";
+import Emails from "../components/tracker/Emails";
+import PhoneNumbers from "../components/tracker/PhoneNumbers";
 import JobApplications from "../components/tracker/JobApplications";
 import RecruiterOutreach from "../components/tracker/RecruiterOutreach";
 import VendorActivities from "../components/tracker/VendorActivities";
@@ -43,6 +45,8 @@ const TABS = [
   ["notes", "Daily Notes"],
   ["linkedin", "LinkedIn Profiles"],
   ["resumes", "Resumes"],
+  ["emails", "Emails"],
+  ["phone-numbers", "Phone Numbers"],
 ];
 
 /* ─────────────── shared style helpers ─────────────── */
@@ -441,6 +445,8 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
 
           {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
           {s.tab === "resumes" && <Resumes user={user} />}
+          {s.tab === "emails" && <Emails user={user} />}
+          {s.tab === "phone-numbers" && <PhoneNumbers user={user} />}
           {s.tab === "applications" && <JobApplications user={user} />}
           {s.tab === "outreach" && <RecruiterOutreach user={user} />}
           {s.tab === "activities" && <VendorActivities user={user} />}
