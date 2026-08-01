@@ -13,6 +13,11 @@ const STATUS_LIST = ["Applied", "Submitted to Client", "Interview Scheduled", "O
 const TODAY   = new Date().toISOString().slice(0, 10);
 const PAGE_SZ = 15;
 
+const VENDOR_ACTIVITY_TYPES = ["cold_email", "vendor_call", "tech_screening", "interview", "offer"];
+const VA_LABELS = { cold_email: "Cold emails", vendor_call: "Vendor calls", tech_screening: "Tech screenings", interview: "Interviews", offer: "Offers" };
+const PERIOD_LABELS = { daily: "today", weekly: "in the last 7 days", monthly: "in the last 30 days", sixmonth: "in the last 6 months", yearly: "in the last 12 months", custom: "in the selected range" };
+const EMPTY_ASSETS = { resumes: [], linkedin: [], emails: [], phoneUsage: [], phoneCalls: [], outreach: [], vendorActivities: [] };
+
 function isSubmission(status) { return status !== "Applied" && status !== "No Response"; }
 function fmtIso(d) { return d.toISOString().slice(0, 10); }
 function fmtDisplay(s) {
@@ -89,6 +94,8 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
   const [portalsList, setPortalsList] = useState([]);
   const [applications, setApplications] = useState([]);
   const [appsLoaded, setAppsLoaded] = useState(false);
+  const [assets, setAssets] = useState(EMPTY_ASSETS);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
 
   const toastTimer = useRef(null);
 
@@ -114,6 +121,32 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
       .catch(() => setApplications([]))
       .finally(() => setAppsLoaded(true));
   }, [s.tab, s.timeRange, s.customStart, s.customEnd, s.role, s.viewingRecruiterId, isAdminUser]);
+
+  /* Load asset inventory (resumes, LinkedIn, emails, phone numbers, outreach, vendor activity)
+     for the Overview tab's asset board. All-time totals, scoped by role like applications above —
+     not refetched on time-range change since the board shows all-time counts, not a range-filtered log. */
+  useEffect(() => {
+    if (s.tab !== "overview") return;
+    const params = {};
+    if (isAdminUser && s.role === "recruiter" && s.viewingRecruiterId) params.user_id = s.viewingRecruiterId;
+    setAssetsLoaded(false);
+    Promise.all([
+      api.get("/resumes", { params }),
+      api.get("/linkedin", { params }),
+      api.get("/emails", { params }),
+      api.get("/phone-numbers/portal-usage", { params }),
+      api.get("/phone-numbers/vendor-calls", { params }),
+      api.get("/outreach", { params }),
+      api.get("/vendor-activities", { params }),
+    ]).then(([resumes, linkedin, emails, phoneUsage, phoneCalls, outreach, vendorActivities]) => {
+      setAssets({
+        resumes: resumes.data, linkedin: linkedin.data, emails: emails.data,
+        phoneUsage: phoneUsage.data, phoneCalls: phoneCalls.data,
+        outreach: outreach.data, vendorActivities: vendorActivities.data,
+      });
+    }).catch(() => setAssets(EMPTY_ASSETS))
+      .finally(() => setAssetsLoaded(true));
+  }, [s.tab, s.role, s.viewingRecruiterId, isAdminUser]);
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
@@ -331,6 +364,43 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
     };
   }, [appsLoaded, applications, managers, portalsList, s.role, s.sortCol, s.sortDir, s.drillRecruiterId, s.jdModalAppId, s.logPage, s.logSearch, s.logPortalFilter, s.logStatusFilter, s.timeRange, s.customStart, s.customEnd]);
 
+  /* ─── Derived (Overview tab asset board) ─── */
+  const A = useMemo(() => {
+    if (!assetsLoaded) return { loaded: false };
+    const { start, end } = getRangeBounds(s.timeRange, s.customStart, s.customEnd);
+    const inRange = (row, field) => { const d = (row[field] || row.created_at || "").slice(0, 10); return d >= start && d <= end; };
+    const periodLabel = PERIOD_LABELS[s.timeRange] || "in the selected range";
+
+    const resumesActive = assets.resumes.filter(r => r.is_active !== false);
+    const resumesInactive = assets.resumes.length - resumesActive.length;
+    const resumesPeriod = assets.resumes.filter(r => inRange(r, "created_at")).length;
+
+    const linkedinPeriod = assets.linkedin.filter(r => inRange(r, "created_at")).length;
+    const totalConnections = assets.linkedin.reduce((sum, r) => sum + (Number(r.connections) || 0), 0);
+
+    const emailsPeriod = assets.emails.filter(r => inRange(r, "created_at")).length;
+
+    const phoneNumberSet = new Set([...assets.phoneUsage, ...assets.phoneCalls].map(r => r.phone_number).filter(Boolean));
+
+    const outreachPeriod = assets.outreach.filter(r => inRange(r, "contacted_date")).length;
+
+    const vaByType = {};
+    assets.vendorActivities.forEach(r => { vaByType[r.activity_type] = (vaByType[r.activity_type] || 0) + 1; });
+    const maxVa = Math.max(1, ...VENDOR_ACTIVITY_TYPES.map(t => vaByType[t] || 0));
+    const vaBreakdown = VENDOR_ACTIVITY_TYPES.map(t => ({ label: VA_LABELS[t], count: vaByType[t] || 0, pct: Math.round(((vaByType[t] || 0) / maxVa) * 100) }));
+
+    const assetCards = [
+      { label: "Resumes", value: resumesActive.length.toLocaleString(), sub: `+${resumesPeriod} ${periodLabel}${resumesInactive ? ` · ${resumesInactive} inactive` : ""}` },
+      { label: "LinkedIn profiles", value: assets.linkedin.length.toLocaleString(), sub: `+${linkedinPeriod} ${periodLabel} · ${totalConnections.toLocaleString()} total connections` },
+      { label: "Emails", value: assets.emails.length.toLocaleString(), sub: `+${emailsPeriod} ${periodLabel}` },
+      { label: "Phone numbers", value: phoneNumberSet.size.toLocaleString(), sub: `${assets.phoneUsage.length} portal listings · ${assets.phoneCalls.length} vendor calls` },
+      { label: "Outreach contacts", value: assets.outreach.length.toLocaleString(), sub: `+${outreachPeriod} ${periodLabel}` },
+      { label: "Vendor activities", value: assets.vendorActivities.length.toLocaleString(), sub: `${vaByType.interview || 0} interviews · ${vaByType.offer || 0} offers` },
+    ];
+
+    return { loaded: true, assetCards, vaBreakdown };
+  }, [assetsLoaded, assets, s.timeRange, s.customStart, s.customEnd]);
+
   const sortToggle = (col, def) => { const same = s.sortCol === col; return { sortCol: col, sortDir: same && s.sortDir === def ? (def === "asc" ? "desc" : "asc") : def }; };
 
   const showOverviewLoading = s.tab === "overview" && !C.dataLoaded;
@@ -473,6 +543,43 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
                     </div>
                   ))}
                 </div>
+
+                {/* Asset inventory */}
+                <div className="mb-1.5 flex items-baseline justify-between">
+                  <div className="text-[13.5px] font-bold">{isAdmin ? "Team asset inventory" : "My asset inventory"}</div>
+                  <div className="text-xs text-subtle">All-time totals · deltas reflect {C.rangeLabel.toLowerCase()}</div>
+                </div>
+                {!A.loaded ? (
+                  <div className="card p-5 mb-5 text-sm text-muted">Loading asset data…</div>
+                ) : (
+                  <>
+                    <div className="grid gap-3.5 mb-3.5" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))" }}>
+                      {A.assetCards.map((kpi, i) => (
+                        <div key={i} className="card p-5">
+                          <div className="text-[11.5px] text-muted font-semibold mb-2 uppercase tracking-wide">{kpi.label}</div>
+                          <div className="text-[28px] font-extrabold tracking-tight leading-none text-dark">{kpi.value}</div>
+                          <div className="text-xs text-subtle mt-1.5">{kpi.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="card p-5 mb-5">
+                      <div className="text-[13.5px] font-bold mb-2.5">Vendor activity breakdown</div>
+                      {A.vaBreakdown.every(v => v.count === 0) && <div className="text-subtle text-sm">No vendor activity logged yet</div>}
+                      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))" }}>
+                        {A.vaBreakdown.map((v, i) => (
+                          <div key={i}>
+                            <div className="flex justify-between text-xs text-medium mb-1">
+                              <span>{v.label}</span><span className="text-subtle">{v.count}</span>
+                            </div>
+                            <div className="bg-surface-alt rounded h-1.5">
+                              <div className="bg-zinc-500 h-full rounded" style={{ width: v.pct + "%" }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Charts row */}
                 <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: "2fr 1fr" }}>
