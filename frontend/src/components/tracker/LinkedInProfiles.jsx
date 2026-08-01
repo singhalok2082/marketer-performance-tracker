@@ -67,7 +67,7 @@ export default function LinkedInProfiles({ user }) {
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted -mb-1">
-        Your LinkedIn asset library — the recruiting profiles you own and their connection counts by title. Add one today and it's already part of this list.
+        Your LinkedIn asset library — the profiles you own and their connection counts by title. Add one today and it's already part of this list.
       </p>
 
       {msg && (

@@ -75,6 +75,16 @@
   }
 }
 
+/* Light-theme counterpart to .liquid-glass, for the landing/sign-in
+   pages now that they sit on warm photo backgrounds instead of black. */
+.glass-light {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(33, 24, 15, 0.08);
+  box-shadow: 0 12px 32px rgba(33, 24, 15, 0.1);
+}
+
 @keyframes lgDrift {
   0%   { transform: translate(-6%, -4%) scale(1); }
   33%  { transform: translate(8%, 6%) scale(1.15); }

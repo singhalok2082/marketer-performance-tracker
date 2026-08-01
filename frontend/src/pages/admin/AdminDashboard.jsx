@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/client";
+import logoIcon from "../../assets/consultadd-icon.jpeg";
 import PerformanceDashboard from "../PerformanceDashboard";
 import LoginLogs from "./tabs/LoginLogs";
 import ActiveSessions from "./tabs/ActiveSessions";
@@ -88,9 +89,9 @@ export default function AdminDashboard() {
             <button onClick={() => setSidebarOpen(o => !o)} className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-zinc-800 transition-colors">
               <Menu size={19} />
             </button>
-            <div className="w-8 h-8 rounded-lg bg-white text-zinc-900 flex items-center justify-center font-bold text-sm shadow-sm">CA</div>
+            <img src={logoIcon} alt="ConsultAdd" className="w-8 h-8 rounded-lg object-cover shadow-sm" />
             <div>
-              <div className="text-sm font-bold tracking-tight">ConsultAdd Tracker</div>
+              <div className="text-sm font-bold tracking-tight">ConsultAdd Pulse</div>
               <div className="text-[11px] text-zinc-400">Admin Security Panel</div>
             </div>
           </div>

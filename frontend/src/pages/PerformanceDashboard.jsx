@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import api from "../api/client";
+import logoIcon from "../assets/consultadd-icon.jpeg";
 import LinkedInProfiles from "../components/tracker/LinkedInProfiles";
 import Resumes from "../components/tracker/Resumes";
 import Emails from "../components/tracker/Emails";
@@ -182,7 +183,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
       set({ newRecruiterName: "", manageLoading: false });
       showToast(`Added ${name} to the team`);
     } catch (err) {
-      showToast(err.response?.data?.error || "Failed to add recruiter");
+      showToast(err.response?.data?.error || "Failed to add account manager");
       set({ manageLoading: false });
     }
   }, [s.newRecruiterName, set, showToast]);
@@ -196,7 +197,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
       set(prev => prev.viewingRecruiterId === id ? { viewingRecruiterId: data[0]?.id || null } : {});
       showToast(`Removed ${name}`);
     } catch (err) {
-      showToast(err.response?.data?.error || "Failed to remove recruiter");
+      showToast(err.response?.data?.error || "Failed to remove account manager");
     }
   }, [set, showToast]);
 
@@ -414,10 +415,10 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
       {/* ══ SIDEBAR ══ */}
       <nav className="w-60 bg-zinc-900 flex flex-col flex-shrink-0 sticky top-0 h-screen">
         <div className="px-4 py-4 flex items-center gap-2.5 border-b border-zinc-800">
-          <div className="w-8 h-8 rounded-md bg-white flex items-center justify-center text-zinc-900 font-bold text-sm flex-shrink-0">CA</div>
+          <img src={logoIcon} alt="ConsultAdd" className="w-8 h-8 rounded-md object-cover flex-shrink-0" />
           <div className="min-w-0">
-            <div className="text-white font-bold text-[13.5px] leading-tight truncate">ConsultAdd Tracker</div>
-            <div className="text-zinc-500 text-[10.5px] leading-tight">Recruiting Ops</div>
+            <div className="text-white font-bold text-[13.5px] leading-tight truncate">ConsultAdd Pulse</div>
+            <div className="text-zinc-500 text-[10.5px] leading-tight">Performance Tracking</div>
           </div>
         </div>
 
