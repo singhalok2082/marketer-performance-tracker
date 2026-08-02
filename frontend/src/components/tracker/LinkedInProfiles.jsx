@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../../api/client";
 
-const emptyForm = { linkedin_url: "", title: "", location: "", connections: "" };
+const emptyForm = { linkedin_url: "", title: "", location: "", connections: "", profile_created_date: "" };
+
+function fmtDate(d) {
+  if (!d) return "—";
+  return new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
 
 export default function LinkedInProfiles({ user }) {
   const isAdmin = user?.role === "admin";
@@ -31,7 +36,10 @@ export default function LinkedInProfiles({ user }) {
 
   const startAdd = () => { setForm(emptyForm); setEditingId(null); setShowForm(true); };
   const startEdit = (p) => {
-    setForm({ linkedin_url: p.linkedin_url, title: p.title, location: p.location || "", connections: String(p.connections ?? "") });
+    setForm({
+      linkedin_url: p.linkedin_url, title: p.title, location: p.location || "",
+      connections: String(p.connections ?? ""), profile_created_date: p.profile_created_date || "",
+    });
     setEditingId(p.id);
     setShowForm(true);
   };
@@ -116,6 +124,11 @@ export default function LinkedInProfiles({ user }) {
             <input type="number" min="0" value={form.connections} onChange={e => setForm(f => ({ ...f, connections: e.target.value }))}
               className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
           </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">LinkedIn account created on</label>
+            <input type="date" value={form.profile_created_date} onChange={e => setForm(f => ({ ...f, profile_created_date: e.target.value }))}
+              className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
+          </div>
           <div className="sm:col-span-2 flex justify-end">
             <button type="submit" disabled={saving} className="btn-primary disabled:opacity-40">
               {saving ? "Saving…" : editingId ? "Save changes" : "Add profile"}
@@ -138,6 +151,7 @@ export default function LinkedInProfiles({ user }) {
                   <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Title</th>
                   <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">LinkedIn URL</th>
                   <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Location</th>
+                  <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide">Created On</th>
                   <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Connections</th>
                   <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Actions</th>
                 </tr>
@@ -151,6 +165,7 @@ export default function LinkedInProfiles({ user }) {
                       <a href={p.linkedin_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">{p.linkedin_url}</a>
                     </td>
                     <td className="px-4 py-2.5 text-muted">{p.location || "—"}</td>
+                    <td className="px-4 py-2.5 text-muted whitespace-nowrap">{fmtDate(p.profile_created_date)}</td>
                     <td className="px-4 py-2.5 text-right">{p.connections?.toLocaleString() ?? 0}</td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
                       <button onClick={() => startEdit(p)} className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-border hover:bg-surface mr-1.5">Edit</button>

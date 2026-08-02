@@ -1,9 +1,10 @@
 const router = require("express").Router();
 const supabase = require("../db/supabase");
 const { requireAuth } = require("../middleware/auth");
+const { hasPermission } = require("../utils/permissions");
 
 function canModify(req, row) {
-  return req.user.role === "admin" || row.user_id === req.user.userId;
+  return hasPermission(req.user, "linkedin") || row.user_id === req.user.userId;
 }
 
 router.get("/", requireAuth, async (req, res) => {
@@ -13,6 +14,7 @@ router.get("/", requireAuth, async (req, res) => {
     .order("created_at", { ascending: false });
 
   if (req.user.role === "admin") {
+    if (!hasPermission(req.user, "linkedin")) return res.status(403).json({ error: "You don't have access to this section" });
     if (req.query.user_id) query = query.eq("user_id", req.query.user_id);
   } else {
     query = query.eq("user_id", req.user.userId);
@@ -25,7 +27,7 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 router.post("/", requireAuth, async (req, res) => {
-  const { linkedin_url, title, location, connections } = req.body;
+  const { linkedin_url, title, location, connections, profile_created_date } = req.body;
   if (!linkedin_url?.trim() || !title?.trim()) {
     return res.status(400).json({ error: "LinkedIn URL and title are required" });
   }
@@ -38,6 +40,7 @@ router.post("/", requireAuth, async (req, res) => {
       title: title.trim(),
       location: location?.trim() || null,
       connections: Number.isFinite(+connections) ? +connections : 0,
+      profile_created_date: profile_created_date || null,
     })
     .select()
     .single();
@@ -59,12 +62,13 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if (findErr || !existing) return res.status(404).json({ error: "Not found" });
   if (!canModify(req, existing)) return res.status(403).json({ error: "Not allowed" });
 
-  const { linkedin_url, title, location, connections } = req.body;
+  const { linkedin_url, title, location, connections, profile_created_date } = req.body;
   const updates = { updated_at: new Date().toISOString() };
   if (linkedin_url !== undefined) updates.linkedin_url = linkedin_url.trim();
   if (title !== undefined) updates.title = title.trim();
   if (location !== undefined) updates.location = location?.trim() || null;
   if (connections !== undefined) updates.connections = Number.isFinite(+connections) ? +connections : 0;
+  if (profile_created_date !== undefined) updates.profile_created_date = profile_created_date || null;
 
   const { data, error } = await supabase
     .from("linkedin_profiles").update(updates).eq("id", req.params.id).select().single();
