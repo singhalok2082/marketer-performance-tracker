@@ -19,6 +19,7 @@ const vendorActivityRoutes = require("./routes/vendor-activities");
 const dailyNoteRoutes = require("./routes/daily-notes");
 const emailRoutes = require("./routes/emails");
 const phoneNumberRoutes = require("./routes/phoneNumbers");
+const ticketRoutes = require("./routes/tickets");
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use("/api/vendor-activities", vendorActivityRoutes);
 app.use("/api/daily-notes",       dailyNoteRoutes);
 app.use("/api/emails",            emailRoutes);
 app.use("/api/phone-numbers",     phoneNumberRoutes);
+app.use("/api/tickets",           ticketRoutes);
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));
