@@ -6,7 +6,9 @@ import { useAuth } from "../context/AuthContext";
 import api from "../api/client";
 import logoIcon from "../assets/consultadd-icon.jpeg";
 
-const heroImage = `${import.meta.env.BASE_URL}images/ny-skyline.jpg`;
+const img = (name) => `${import.meta.env.BASE_URL}images/${name}.jpg`;
+const heroImage = img("ny-skyline");
+const teamImage = img("capitol");
 
 function initials(name = "") { return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase(); }
 
@@ -40,6 +42,12 @@ export default function Landing() {
     }
     api.get("/users/public").then(r => setTeam(r.data)).catch(() => {});
   }, [user, navigate]);
+
+  // Fire-and-forget landing-page visit log — counts the hit regardless of
+  // whether the visitor turns out to already be logged in.
+  useEffect(() => {
+    api.post("/analytics/track", { path: "/" }).catch(() => {});
+  }, []);
 
   const goLogin = (e) => {
     e?.preventDefault();
@@ -84,10 +92,18 @@ export default function Landing() {
       </section>
 
       {/* ═══ TEAM ═══ */}
-      <section id="team" className="relative bg-[#FBF6EC] py-24 md:py-32 px-6 text-center">
-        <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7 }}>
+      <section
+        id="team"
+        className="relative py-24 md:py-32 px-6 text-center"
+        style={{
+          backgroundImage: `linear-gradient(180deg, #FBF6EC 0%, rgba(251,246,236,0.1) 14%, rgba(251,246,236,0.1) 86%, #FBF6EC 100%), url(${teamImage})`,
+          backgroundSize: "cover", backgroundPosition: "center",
+        }}
+      >
+        <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }} transition={{ duration: 0.7 }}
+          className="glass-light inline-block rounded-[2.5rem] px-8 py-8 md:px-14 md:py-10 mb-12">
           <span className="block text-caText/40 text-sm tracking-widest uppercase mb-4">The Team</span>
-          <h2 className="text-4xl md:text-6xl text-caText tracking-tight mb-16" style={{ fontFamily: "'Instrument Serif', serif" }}>
+          <h2 className="text-4xl md:text-6xl text-caText tracking-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>
             One team, <em className="italic text-caText/50">one dashboard.</em>
           </h2>
         </motion.div>

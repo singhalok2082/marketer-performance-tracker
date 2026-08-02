@@ -9,6 +9,59 @@ import JobApplications from "../components/tracker/JobApplications";
 import RecruiterOutreach from "../components/tracker/RecruiterOutreach";
 import VendorActivities from "../components/tracker/VendorActivities";
 import DailyNotes from "../components/tracker/DailyNotes";
+import Support from "../components/tracker/Support";
+
+export const img = (name) => `${import.meta.env.BASE_URL}images/${name}.jpg`;
+
+// Each tab gets its own landmark photo dissolving into a tint pulled from
+// that image's palette, so the whole pane reads as one themed surface
+// instead of a cropped strip pasted on top.
+export const TAB_BANNERS = {
+  overview: { src: img("ny-skyline"), caption: "New York, NY", tint: "#FBF3E9" },
+  applications: { src: img("capitol"), caption: "Washington, DC", tint: "#EFF4FA" },
+  outreach: { src: img("golden-gate-bridge"), caption: "San Francisco, CA", tint: "#FBF0EA" },
+  activities: { src: img("brooklyn-bridge"), caption: "Brooklyn, NY", tint: "#F6F1E7" },
+  notes: { src: img("alaska"), caption: "Alaska", tint: "#EAF3F7" },
+  linkedin: { src: img("harvard"), caption: "Cambridge, MA", tint: "#F8EFEC" },
+  resumes: { src: img("mit"), caption: "Cambridge, MA", tint: "#F0F5EC" },
+  emails: { src: img("manhattan-bridge"), caption: "Manhattan, NY", tint: "#EEF1F5" },
+  "phone-numbers": { src: img("mount-rushmore"), caption: "South Dakota", tint: "#EEF2ED" },
+  support: { src: img("statue-of-liberty"), caption: "Liberty Island, NY", tint: "#EFF4F5" },
+};
+
+// A handful of named looks for "Simple" mode — background, a faint CSS
+// texture (no images), and a font, each picking up a different classic
+// web look. Picked once, remembered until changed.
+export const SIMPLE_THEMES = [
+  {
+    id: "default", label: "Default",
+    bg: "#FAFAFA", texture: "none",
+    cardBg: "#FFFFFF", cardBorder: "#E4E4E7",
+    font: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+  },
+  {
+    id: "classic", label: "Classic",
+    bg: "#F8F1E4",
+    texture: "repeating-linear-gradient(0deg, rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px, transparent 1px, transparent 24px), repeating-linear-gradient(90deg, rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px, transparent 1px, transparent 24px)",
+    cardBg: "#FFFDF8", cardBorder: "#E8D9BE",
+    font: "Georgia, 'Times New Roman', serif",
+  },
+  {
+    id: "terminal", label: "Terminal",
+    bg: "#EFF5EF",
+    texture: "repeating-linear-gradient(0deg, rgba(22,101,52,0.05) 0px, rgba(22,101,52,0.05) 1px, transparent 1px, transparent 3px)",
+    cardBg: "#FBFDFB", cardBorder: "#CFE3D3",
+    font: "'Courier New', Courier, monospace",
+  },
+  {
+    id: "ocean", label: "Ocean",
+    bg: "#EDF3F8",
+    texture: "radial-gradient(rgba(37,99,235,0.06) 1px, transparent 1px)",
+    textureSize: "16px 16px",
+    cardBg: "#FFFFFF", cardBorder: "#D6E4F0",
+    font: "Verdana, 'Trebuchet MS', sans-serif",
+  },
+];
 
 const STATUS_LIST = ["Applied", "Submitted to Client", "Interview Scheduled", "Offer", "Rejected", "No Response"];
 const TODAY   = new Date().toISOString().slice(0, 10);
@@ -53,6 +106,7 @@ const TABS = [
   ["resumes", "Resumes"],
   ["emails", "Emails"],
   ["phone-numbers", "Phone Numbers"],
+  ["support", "Support"],
 ];
 
 /* ─────────────── shared style helpers ─────────────── */
@@ -97,6 +151,29 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
   const [appsLoaded, setAppsLoaded] = useState(false);
   const [assets, setAssets] = useState(EMPTY_ASSETS);
   const [assetsLoaded, setAssetsLoaded] = useState(false);
+
+  // Per-user preference: the photo-themed "creative" background, or the
+  // original plain surface. Persisted locally so it survives reloads and
+  // doesn't leak between different people sharing the same browser.
+  const bgPrefKey = `pulse-dashboard-bg:${user?.id || "guest"}`;
+  const [bgPref, setBgPref] = useState(() => {
+    try { return localStorage.getItem(bgPrefKey) || "creative"; } catch { return "creative"; }
+  });
+  const setBgPrefPersist = useCallback((val) => {
+    setBgPref(val);
+    try { localStorage.setItem(bgPrefKey, val); } catch { /* ignore */ }
+  }, [bgPrefKey]);
+
+  // Which named look to use while in "Simple" mode — also remembered per user.
+  const simpleThemeKey = `pulse-simple-theme:${user?.id || "guest"}`;
+  const [simpleThemeId, setSimpleThemeId] = useState(() => {
+    try { return localStorage.getItem(simpleThemeKey) || "default"; } catch { return "default"; }
+  });
+  const setSimpleThemePersist = useCallback((val) => {
+    setSimpleThemeId(val);
+    try { localStorage.setItem(simpleThemeKey, val); } catch { /* ignore */ }
+  }, [simpleThemeKey]);
+  const simpleTheme = SIMPLE_THEMES.find(t => t.id === simpleThemeId) || SIMPLE_THEMES[0];
 
   const toastTimer = useRef(null);
 
@@ -281,7 +358,8 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
       const b = buckets[k]; const d = new Date(k + "T00:00:00Z");
       return {
         label: byWeek ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : d.toLocaleDateString("en-US", { weekday: "narrow", timeZone: "UTC" }),
-        tooltip: `${k}: ${b.apps} apps, ${b.subs} subs`,
+        dateLabel: byWeek ? `Week of ${fmtDisplay(k)}` : fmtDisplay(k),
+        apps: b.apps, subs: b.subs,
         appH: Math.round((b.apps / maxVal) * 140), subH: Math.round((b.subs / maxVal) * 140)
       };
     });
@@ -408,6 +486,8 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
   const isAdminMode = s.role === "admin";
   const isRecruiterMode = !isAdminMode;
   const currentTabLabel = TABS.find(([key]) => key === s.tab)?.[1] || "Overview";
+  const theme = bgPref === "simple" ? null : TAB_BANNERS[s.tab];
+  const cardCls = theme ? "glass-card" : "card";
 
   return (
     <div className="min-h-screen bg-surface text-dark font-sans flex">
@@ -427,6 +507,9 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
             <React.Fragment key={key}>
               {key === "linkedin" && (
                 <div className="px-3.5 pt-4 pb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-zinc-500">Assets</div>
+              )}
+              {key === "support" && (
+                <div className="px-3.5 pt-4 pb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-zinc-500">Help</div>
               )}
               <button onClick={() => set({ tab: key })} className={navItem(s.tab === key)}>
                 {label}
@@ -448,6 +531,26 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
               Admin Panel
             </button>
           )}
+          <div className="px-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">Background</div>
+            <div className="flex bg-zinc-800 rounded-md p-0.5">
+              {[["creative", "Creative"], ["simple", "Simple"]].map(([key, label]) => (
+                <button key={key} onClick={() => setBgPrefPersist(key)}
+                  className={`flex-1 h-6 rounded text-[11px] font-semibold transition-colors ${bgPref === key ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {bgPref === "simple" && (
+              <div className="flex gap-1.5 mt-1.5">
+                {SIMPLE_THEMES.map(t => (
+                  <button key={t.id} onClick={() => setSimpleThemePersist(t.id)} title={t.label}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform ${simpleThemeId === t.id ? "border-white scale-110" : "border-transparent hover:scale-105"}`}
+                    style={{ background: t.bg }} />
+                ))}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2.5 pt-1.5 px-1">
             <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold text-[11px] flex-shrink-0">{initials(user?.name)}</div>
             <div className="min-w-0 flex-1">
@@ -469,8 +572,21 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
       </nav>
 
       {/* ══ MAIN ══ */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="sticky top-0 z-20 bg-white border-b border-border">
+      <div
+        className="flex-1 min-w-0 flex flex-col"
+        style={theme ? {
+          backgroundImage: `linear-gradient(${theme.tint}30, ${theme.tint}4D), url(${theme.src})`,
+          backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat",
+        } : {
+          background: simpleTheme.bg,
+          backgroundImage: simpleTheme.texture,
+          backgroundSize: simpleTheme.textureSize,
+          fontFamily: simpleTheme.font,
+          "--card-bg": simpleTheme.cardBg,
+          "--card-border": simpleTheme.cardBorder,
+        }}
+      >
+        <div className={theme ? "sticky top-0 z-20 bg-white/70 backdrop-blur-lg border-b border-white/40" : "sticky top-0 z-20 border-b"} style={theme ? undefined : { background: simpleTheme.cardBg, borderColor: simpleTheme.cardBorder }}>
           <div className="px-8 py-3.5 flex items-center justify-between gap-3 flex-wrap">
             <div className="text-[15.5px] font-bold tracking-tight">{currentTabLabel}</div>
             {s.tab === "overview" && (
@@ -514,17 +630,22 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         {/* ══ BODY ══ */}
         <div className="px-8 py-6 pb-16 flex-1">
 
-          {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
-          {s.tab === "resumes" && <Resumes user={user} />}
-          {s.tab === "emails" && <Emails user={user} />}
-          {s.tab === "phone-numbers" && <PhoneNumbers user={user} />}
-          {s.tab === "applications" && <JobApplications user={user} />}
-          {s.tab === "outreach" && <RecruiterOutreach user={user} />}
-          {s.tab === "activities" && <VendorActivities user={user} />}
-          {s.tab === "notes" && <DailyNotes user={user} />}
+          {["linkedin", "resumes", "emails", "phone-numbers", "applications", "outreach", "activities", "notes", "support"].includes(s.tab) && (
+            <div className={`${cardCls} p-6`}>
+              {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
+              {s.tab === "resumes" && <Resumes user={user} />}
+              {s.tab === "emails" && <Emails user={user} />}
+              {s.tab === "phone-numbers" && <PhoneNumbers user={user} />}
+              {s.tab === "applications" && <JobApplications user={user} />}
+              {s.tab === "outreach" && <RecruiterOutreach user={user} />}
+              {s.tab === "activities" && <VendorActivities user={user} />}
+              {s.tab === "notes" && <DailyNotes user={user} />}
+              {s.tab === "support" && <Support user={user} />}
+            </div>
+          )}
 
           {s.tab === "overview" && showOverviewLoading && (
-            <div className="flex items-center justify-center min-h-[300px] text-muted text-sm gap-2.5">
+            <div className={`${cardCls} flex items-center justify-center min-h-[300px] text-medium text-sm gap-2.5`}>
               <span className="spin inline-block border-2 border-border rounded-full" style={{ borderTopColor: "#18181B", width: 18, height: 18 }} />
               Loading data…
             </div>
@@ -537,7 +658,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
                 {/* KPI cards */}
                 <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))" }}>
                   {kpis.map((kpi, i) => (
-                    <div key={i} className="card p-5">
+                    <div key={i} className={`${cardCls} p-5`}>
                       <div className="text-[11.5px] text-muted font-semibold mb-2 uppercase tracking-wide">{kpi.label}</div>
                       <div className="text-[28px] font-extrabold tracking-tight leading-none" style={{ color: kpi.color }}>{kpi.value}</div>
                       <div className="text-xs text-subtle mt-1.5">{kpi.sub}</div>
@@ -546,24 +667,24 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
                 </div>
 
                 {/* Asset inventory */}
-                <div className="mb-1.5 flex items-baseline justify-between">
+                <div className={`${cardCls} px-4 py-2.5 mb-2 flex items-baseline justify-between`}>
                   <div className="text-[13.5px] font-bold">{isAdmin ? "Team asset inventory" : "My asset inventory"}</div>
-                  <div className="text-xs text-subtle">All-time totals · deltas reflect {C.rangeLabel.toLowerCase()}</div>
+                  <div className="text-xs text-medium">All-time totals · deltas reflect {C.rangeLabel.toLowerCase()}</div>
                 </div>
                 {!A.loaded ? (
-                  <div className="card p-5 mb-5 text-sm text-muted">Loading asset data…</div>
+                  <div className={`${cardCls} p-5 mb-5 text-sm text-muted`}>Loading asset data…</div>
                 ) : (
                   <>
                     <div className="grid gap-3.5 mb-3.5" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))" }}>
                       {A.assetCards.map((kpi, i) => (
-                        <div key={i} className="card p-5">
+                        <div key={i} className={`${cardCls} p-5`}>
                           <div className="text-[11.5px] text-muted font-semibold mb-2 uppercase tracking-wide">{kpi.label}</div>
                           <div className="text-[28px] font-extrabold tracking-tight leading-none text-dark">{kpi.value}</div>
                           <div className="text-xs text-subtle mt-1.5">{kpi.sub}</div>
                         </div>
                       ))}
                     </div>
-                    <div className="card p-5 mb-5">
+                    <div className={`${cardCls} p-5 mb-5`}>
                       <div className="text-[13.5px] font-bold mb-2.5">Vendor activity breakdown</div>
                       {A.vaBreakdown.every(v => v.count === 0) && <div className="text-subtle text-sm">No vendor activity logged yet</div>}
                       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))" }}>
@@ -585,17 +706,21 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
                 {/* Charts row */}
                 <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: "2fr 1fr" }}>
                   {/* Trend */}
-                  <div className="card p-5">
+                  <div className={`${cardCls} p-5`}>
                     <div className="text-[13.5px] font-bold mb-0.5">Applications vs. submissions over time</div>
                     <div className="text-xs text-subtle mb-3.5">{trendSubtitle}</div>
-                    <div className="flex items-end gap-1.5" style={{ height: 160 }}>
+                    <div className="flex items-end gap-1.5 mt-6" style={{ height: 160 }}>
                       {trendBars.length === 0
                         ? <div className="w-full text-center text-subtle text-sm self-center">No data in range</div>
                         : trendBars.map((b, i) => (
-                          <div key={i} title={b.tooltip} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
+                          <div key={i} className="relative group flex-1 flex flex-col items-center justify-end h-full gap-1 cursor-default">
+                            <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 whitespace-nowrap bg-dark text-white rounded-md px-2.5 py-1.5 shadow-popover">
+                              <div className="text-[10px] text-zinc-400 font-medium mb-0.5">{b.dateLabel}</div>
+                              <div className="text-[11.5px] font-semibold">{b.apps} application{b.apps === 1 ? "" : "s"} · {b.subs} submission{b.subs === 1 ? "" : "s"}</div>
+                            </div>
                             <div className="w-full flex items-end justify-center gap-0.5 h-full">
-                              <div className="w-[45%] rounded-t bg-zinc-200" style={{ height: b.appH, minHeight: 2 }} />
-                              <div className="w-[45%] rounded-t bg-primary" style={{ height: b.subH, minHeight: 2 }} />
+                              <div className="w-[45%] rounded-t bg-zinc-200 group-hover:bg-zinc-300 transition-colors" style={{ height: b.appH, minHeight: 2 }} />
+                              <div className="w-[45%] rounded-t bg-primary group-hover:bg-primary-hover transition-colors" style={{ height: b.subH, minHeight: 2 }} />
                             </div>
                             <div className="text-[10px] text-subtle whitespace-nowrap">{b.label}</div>
                           </div>
@@ -607,7 +732,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
                     </div>
                   </div>
                   {/* Portal breakdown */}
-                  <div className="card p-5">
+                  <div className={`${cardCls} p-5`}>
                     <div className="text-[13.5px] font-bold mb-2.5">By job portal</div>
                     {portalBars.length === 0 && <div className="text-subtle text-sm">No applications in range</div>}
                     {portalBars.slice(0, 9).map((p, i) => (
@@ -625,7 +750,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
 
                 {/* Team performance table (admin) */}
                 {isAdmin && (
-                  <div className="card overflow-hidden mb-5">
+                  <div className={`${cardCls} overflow-hidden mb-5`}>
                     <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                       <div>
                         <div className="text-[14.5px] font-bold">Team performance</div>
@@ -667,7 +792,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
                 )}
 
                 {/* Submissions table */}
-                <div className="card overflow-hidden">
+                <div className={`${cardCls} overflow-hidden`}>
                   <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <div className="text-[14.5px] font-bold">{isAdmin ? "All submissions & applications" : "My submission log"}</div>

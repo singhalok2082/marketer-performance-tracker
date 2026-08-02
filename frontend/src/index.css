@@ -24,7 +24,9 @@
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl border border-border shadow-card;
+    background: var(--card-bg, #fff);
+    border-color: var(--card-border, #E4E4E7);
+    @apply rounded-xl border shadow-card;
   }
   .input {
     @apply w-full h-9 rounded-lg border border-border bg-white px-3 text-sm text-dark outline-none transition-all;
@@ -40,6 +42,16 @@
   }
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  /* Frosted-glass counterpart to .card, used where a tab's full landmark
+     photo sits behind the content instead of a flat surface color. */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.68);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 28px rgba(24, 24, 27, 0.1);
   }
 
   /* Glassmorphism utility used on the landing/login pages only. */

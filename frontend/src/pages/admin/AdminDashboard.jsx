@@ -2,15 +2,17 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity, ScrollText, BarChart3, ShieldAlert, Users, Link2, KeyRound,
-  Send, Inbox, Phone, NotebookPen, Contact2, FileText, Menu, LogOut, ArrowLeft,
+  Send, Inbox, Phone, NotebookPen, Contact2, FileText, Menu, LogOut, ArrowLeft, LifeBuoy, Globe,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/client";
 import logoIcon from "../../assets/consultadd-icon.jpeg";
-import PerformanceDashboard from "../PerformanceDashboard";
+import PerformanceDashboard, { TAB_BANNERS, SIMPLE_THEMES, img } from "../PerformanceDashboard";
+import { PERMISSION_SECTIONS, hasPermission } from "./permissionSections";
 import LoginLogs from "./tabs/LoginLogs";
 import ActiveSessions from "./tabs/ActiveSessions";
 import UsageAnalytics from "./tabs/UsageAnalytics";
+import SiteTraffic from "./tabs/SiteTraffic";
 import SuspiciousAlerts from "./tabs/SuspiciousAlerts";
 import UserManagement from "./tabs/UserManagement";
 import PortalManagement from "./tabs/PortalManagement";
@@ -21,30 +23,43 @@ import JobApplications from "../../components/tracker/JobApplications";
 import RecruiterOutreach from "../../components/tracker/RecruiterOutreach";
 import VendorActivities from "../../components/tracker/VendorActivities";
 import DailyNotes from "../../components/tracker/DailyNotes";
+import Support from "../../components/tracker/Support";
 
-const TABS = [
-  { id: "sessions",   label: "Active Sessions",  Icon: Activity },
-  { id: "logs",       label: "Login Logs",        Icon: ScrollText },
-  { id: "analytics",  label: "Usage Analytics",   Icon: BarChart3 },
-  { id: "suspicious", label: "Suspicious",        Icon: ShieldAlert },
-  { id: "users",      label: "Users",             Icon: Users },
-  { id: "portals",    label: "Portals",           Icon: Link2 },
-  { id: "passwords",  label: "Reset Passwords",   Icon: KeyRound },
-  { id: "applications", label: "Applications",    Icon: Send },
-  { id: "outreach",   label: "Inbound Requirements", Icon: Inbox },
-  { id: "activities", label: "Vendor Activities",  Icon: Phone },
-  { id: "notes",      label: "Daily Notes",        Icon: NotebookPen },
-  { id: "linkedin",   label: "LinkedIn Profiles", Icon: Contact2 },
-  { id: "resumes",    label: "Resumes",           Icon: FileText },
-];
+const TAB_ICONS = {
+  sessions: Activity, logs: ScrollText, analytics: BarChart3, traffic: Globe, suspicious: ShieldAlert,
+  users: Users, portals: Link2, passwords: KeyRound,
+  applications: Send, outreach: Inbox, activities: Phone, notes: NotebookPen,
+  linkedin: Contact2, resumes: FileText, support: LifeBuoy,
+};
+const ALL_TABS = PERMISSION_SECTIONS.map(({ key, label }) => ({ id: key, label, Icon: TAB_ICONS[key] }));
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const visibleTabs = ALL_TABS.filter(t => hasPermission(user, t.id));
   const [showPanel, setShowPanel] = useState(false);
-  const [tab, setTab] = useState("sessions");
+  const [tab, setTab] = useState(() => visibleTabs[0]?.id || "sessions");
   const [summary, setSummary] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const bgPrefKey = `pulse-dashboard-bg:${user?.id || "guest"}`;
+  const [bgPref, setBgPref] = useState(() => {
+    try { return localStorage.getItem(bgPrefKey) || "creative"; } catch { return "creative"; }
+  });
+  const setBgPrefPersist = (val) => {
+    setBgPref(val);
+    try { localStorage.setItem(bgPrefKey, val); } catch { /* ignore */ }
+  };
+
+  const simpleThemeKey = `pulse-simple-theme:${user?.id || "guest"}`;
+  const [simpleThemeId, setSimpleThemeId] = useState(() => {
+    try { return localStorage.getItem(simpleThemeKey) || "default"; } catch { return "default"; }
+  });
+  const setSimpleThemePersist = (val) => {
+    setSimpleThemeId(val);
+    try { localStorage.setItem(simpleThemeKey, val); } catch { /* ignore */ }
+  };
+  const simpleTheme = SIMPLE_THEMES.find(t => t.id === simpleThemeId) || SIMPLE_THEMES[0];
 
   useEffect(() => {
     if (!showPanel) return;
@@ -78,7 +93,9 @@ export default function AdminDashboard() {
     { label: "Suspicious (7d)", value: summary?.suspiciousCount ?? "—", color: "text-red-600",  bg: "bg-red-50" },
   ];
 
-  const activeTab = TABS.find(t => t.id === tab);
+  const activeTab = ALL_TABS.find(t => t.id === tab);
+  const banner = bgPref === "simple" ? null : (TAB_BANNERS[tab] || { src: img("statue-of-liberty"), caption: "Liberty Island, NY", tint: "#F1F1EC" });
+  const cardCls = banner ? "glass-card" : "card";
 
   return (
     <div className="min-h-screen bg-surface flex flex-col font-sans">
@@ -109,6 +126,23 @@ export default function AdminDashboard() {
               className="flex items-center gap-1.5 text-xs font-medium text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500 px-3 py-1.5 rounded-lg transition-colors">
               <ArrowLeft size={13} /> Dashboard
             </button>
+            <div className="flex bg-zinc-800 rounded-md p-0.5">
+              {[["creative", "Creative"], ["simple", "Simple"]].map(([key, label]) => (
+                <button key={key} onClick={() => setBgPrefPersist(key)}
+                  className={`h-6 px-2.5 rounded text-[11px] font-semibold transition-colors ${bgPref === key ? "bg-zinc-600 text-white" : "text-zinc-400 hover:text-white"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {bgPref === "simple" && (
+              <div className="flex gap-1.5">
+                {SIMPLE_THEMES.map(t => (
+                  <button key={t.id} onClick={() => setSimpleThemePersist(t.id)} title={t.label}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform ${simpleThemeId === t.id ? "border-white scale-110" : "border-transparent hover:scale-105"}`}
+                    style={{ background: t.bg }} />
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-1.5">
               <div className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold">
                 {user?.name?.split(" ").map(w => w[0]).slice(0,2).join("")}
@@ -129,7 +163,7 @@ export default function AdminDashboard() {
         {/* Sidebar */}
         <nav className={`bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-200 ${sidebarOpen ? "w-56" : "w-0 overflow-hidden"}`}>
           <div className="p-3 space-y-0.5 flex-1 overflow-y-auto">
-            {TABS.map(t => (
+            {visibleTabs.map(t => (
               <React.Fragment key={t.id}>
                 {t.id === "linkedin" && (
                   <div className="px-3 pt-4 pb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-zinc-500">Assets</div>
@@ -147,12 +181,26 @@ export default function AdminDashboard() {
         </nav>
 
         {/* Main content */}
-        <main className="flex-1 overflow-auto">
+        <main
+          className="flex-1 overflow-auto"
+          style={banner ? {
+            backgroundImage: `linear-gradient(${banner.tint}30, ${banner.tint}4D), url(${banner.src})`,
+            backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed", backgroundRepeat: "no-repeat",
+          } : {
+            background: simpleTheme.bg,
+            backgroundImage: simpleTheme.texture,
+            backgroundSize: simpleTheme.textureSize,
+            fontFamily: simpleTheme.font,
+            "--card-bg": simpleTheme.cardBg,
+            "--card-border": simpleTheme.cardBorder,
+          }}
+        >
           {/* Summary strip */}
-          <div className="bg-white border-b border-border px-6 py-4">
+          <div className={banner ? "bg-white/70 backdrop-blur-lg border-b border-white/40 px-6 py-4" : "border-b px-6 py-4"}
+            style={banner ? undefined : { background: simpleTheme.cardBg, borderColor: simpleTheme.cardBorder }}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
               {SUMMARY_CARDS.map(c => (
-                <div key={c.label} className={`${c.bg} rounded-xl px-4 py-3.5`}>
+                <div key={c.label} className={banner ? `${c.bg}/85 backdrop-blur-md border border-white/40 rounded-xl px-4 py-3.5` : `${c.bg} rounded-xl px-4 py-3.5`}>
                   <div className="text-[11px] text-muted font-semibold uppercase tracking-wide">{c.label}</div>
                   <div className={`text-2xl font-extrabold mt-1 tracking-tight ${c.color}`}>{c.value}</div>
                 </div>
@@ -161,23 +209,35 @@ export default function AdminDashboard() {
           </div>
 
           <div className="p-6">
-            <div className="text-[17px] font-bold mb-5 flex items-center gap-2.5">
-              {activeTab && <activeTab.Icon size={19} className="text-primary" />}
-              {activeTab?.label}
+            <div className={`${cardCls} p-6`}>
+              {visibleTabs.length === 0 ? (
+                <div className="text-sm text-muted text-center py-10">
+                  Your admin access doesn't include any Admin Panel sections yet — ask another admin to grant you some under Users.
+                </div>
+              ) : (
+              <>
+              <div className="text-[17px] font-bold mb-4 flex items-center gap-2.5">
+                {activeTab && <activeTab.Icon size={19} className="text-primary" />}
+                {activeTab?.label}
+              </div>
+              {tab === "sessions"   && <ActiveSessions />}
+              {tab === "logs"       && <LoginLogs />}
+              {tab === "analytics"  && <UsageAnalytics />}
+              {tab === "traffic"    && <SiteTraffic />}
+              {tab === "suspicious" && <SuspiciousAlerts />}
+              {tab === "users"      && <UserManagement />}
+              {tab === "portals"    && <PortalManagement />}
+              {tab === "passwords"  && <PasswordReset />}
+              {tab === "linkedin"     && <LinkedInProfiles user={user} />}
+              {tab === "resumes"      && <Resumes user={user} />}
+              {tab === "applications" && <JobApplications user={user} />}
+              {tab === "outreach"     && <RecruiterOutreach user={user} />}
+              {tab === "activities"   && <VendorActivities user={user} />}
+              {tab === "notes"        && <DailyNotes user={user} />}
+              {tab === "support"      && <Support user={user} />}
+              </>
+              )}
             </div>
-            {tab === "sessions"   && <ActiveSessions />}
-            {tab === "logs"       && <LoginLogs />}
-            {tab === "analytics"  && <UsageAnalytics />}
-            {tab === "suspicious" && <SuspiciousAlerts />}
-            {tab === "users"      && <UserManagement />}
-            {tab === "portals"    && <PortalManagement />}
-            {tab === "passwords"  && <PasswordReset />}
-            {tab === "linkedin"     && <LinkedInProfiles user={user} />}
-            {tab === "resumes"      && <Resumes user={user} />}
-            {tab === "applications" && <JobApplications user={user} />}
-            {tab === "outreach"     && <RecruiterOutreach user={user} />}
-            {tab === "activities"   && <VendorActivities user={user} />}
-            {tab === "notes"        && <DailyNotes user={user} />}
           </div>
         </main>
       </div>
