@@ -1,9 +1,10 @@
 const router = require("express").Router();
 const supabase = require("../db/supabase");
 const { requireAuth } = require("../middleware/auth");
+const { hasPermission } = require("../utils/permissions");
 
 function canModify(req, row) {
-  return req.user.role === "admin" || row.user_id === req.user.userId;
+  return hasPermission(req.user, "outreach") || row.user_id === req.user.userId;
 }
 
 router.get("/", requireAuth, async (req, res) => {
@@ -13,6 +14,7 @@ router.get("/", requireAuth, async (req, res) => {
     .order("contacted_date", { ascending: false });
 
   if (req.user.role === "admin") {
+    if (!hasPermission(req.user, "outreach")) return res.status(403).json({ error: "You don't have access to this section" });
     if (req.query.user_id) query = query.eq("user_id", req.query.user_id);
   } else {
     query = query.eq("user_id", req.user.userId);

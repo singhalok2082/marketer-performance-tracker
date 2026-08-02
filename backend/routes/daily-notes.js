@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const supabase = require("../db/supabase");
 const { requireAuth } = require("../middleware/auth");
+const { hasPermission } = require("../utils/permissions");
 
 router.get("/", requireAuth, async (req, res) => {
   let query = supabase
@@ -9,6 +10,7 @@ router.get("/", requireAuth, async (req, res) => {
     .order("note_date", { ascending: false });
 
   if (req.user.role === "admin") {
+    if (!hasPermission(req.user, "notes")) return res.status(403).json({ error: "You don't have access to this section" });
     if (req.query.user_id) query = query.eq("user_id", req.query.user_id);
   } else {
     query = query.eq("user_id", req.user.userId);
@@ -52,7 +54,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
   const { data: existing, error: findErr } = await supabase
     .from("daily_notes").select("id, user_id").eq("id", req.params.id).single();
   if (findErr || !existing) return res.status(404).json({ error: "Not found" });
-  if (req.user.role !== "admin" && existing.user_id !== req.user.userId) {
+  if (!hasPermission(req.user, "notes") && existing.user_id !== req.user.userId) {
     return res.status(403).json({ error: "Not allowed" });
   }
 

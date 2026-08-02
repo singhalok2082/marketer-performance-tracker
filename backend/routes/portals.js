@@ -1,13 +1,14 @@
 const router = require("express").Router();
 const supabase = require("../db/supabase");
-const { requireAuth, requireAdmin } = require("../middleware/auth");
+const { requireAuth } = require("../middleware/auth");
+const { requirePermission } = require("../utils/permissions");
 
 router.get("/", requireAuth, async (_req, res) => {
   const { data } = await supabase.from("portals").select("*").order("name");
   res.json(data || []);
 });
 
-router.post("/", requireAuth, requireAdmin, async (req, res) => {
+router.post("/", requireAuth, requirePermission("portals"), async (req, res) => {
   const { name, url } = req.body;
   if (!name) return res.status(400).json({ error: "Portal name required" });
 
@@ -28,7 +29,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
   res.status(201).json(data);
 });
 
-router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
+router.patch("/:id", requireAuth, requirePermission("portals"), async (req, res) => {
   const { name, url, is_active } = req.body;
   const updates = {};
   if (name !== undefined) updates.name = name.trim();
@@ -46,7 +47,7 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
   res.json(data);
 });
 
-router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
+router.delete("/:id", requireAuth, requirePermission("portals"), async (req, res) => {
   await supabase.from("portals").update({ is_active: false }).eq("id", req.params.id);
 
   await supabase.from("audit_logs").insert({

@@ -65,7 +65,7 @@ router.post("/login", loginLimiter, async (req, res) => {
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
 
   const token = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role, name: user.name, sessionId },
+    { userId: user.id, email: user.email, role: user.role, name: user.name, sessionId, permissions: user.permissions ?? null },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN }
   );
@@ -101,7 +101,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     sameSite: isProd ? "none" : "lax",
     secure: isProd,
   });
-  res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role }, token });
+  res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, permissions: user.permissions ?? null }, token });
 });
 
 router.post("/logout", requireAuth, async (req, res) => {
@@ -114,7 +114,7 @@ router.post("/logout", requireAuth, async (req, res) => {
 router.get("/me", requireAuth, async (req, res) => {
   const { data: user } = await supabase
     .from("users")
-    .select("id, name, email, role, must_change_password, created_at")
+    .select("id, name, email, role, must_change_password, permissions, created_at")
     .eq("id", req.user.userId)
     .single();
   res.json(user || req.user);

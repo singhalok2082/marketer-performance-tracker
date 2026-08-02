@@ -1,9 +1,10 @@
 const router = require("express").Router();
 const supabase = require("../db/supabase");
-const { requireAuth, requireAdmin } = require("../middleware/auth");
+const { requireAuth } = require("../middleware/auth");
+const { requirePermission } = require("../utils/permissions");
 
 // Login logs
-router.get("/login-logs", requireAuth, requireAdmin, async (req, res) => {
+router.get("/login-logs", requireAuth, requirePermission("logs"), async (req, res) => {
   const { page = 1, limit = 50, userId, status } = req.query;
   const from = (page - 1) * limit;
   const to = from + Number(limit) - 1;
@@ -23,7 +24,7 @@ router.get("/login-logs", requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Active sessions
-router.get("/sessions", requireAuth, requireAdmin, async (_req, res) => {
+router.get("/sessions", requireAuth, requirePermission("sessions"), async (_req, res) => {
   const { data } = await supabase
     .from("sessions")
     .select("*, users(name, email, role)")
@@ -34,7 +35,7 @@ router.get("/sessions", requireAuth, requireAdmin, async (_req, res) => {
 });
 
 // Terminate a session
-router.delete("/sessions/:id", requireAuth, requireAdmin, async (req, res) => {
+router.delete("/sessions/:id", requireAuth, requirePermission("sessions"), async (req, res) => {
   const { data: session } = await supabase.from("sessions").select("user_id, session_id").eq("id", req.params.id).single();
   await supabase.from("sessions").update({ is_active: false }).eq("id", req.params.id);
 
@@ -48,7 +49,7 @@ router.delete("/sessions/:id", requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Suspicious activity
-router.get("/suspicious", requireAuth, requireAdmin, async (req, res) => {
+router.get("/suspicious", requireAuth, requirePermission("suspicious"), async (req, res) => {
   const { limit = 100 } = req.query;
   const { data } = await supabase
     .from("login_logs")
@@ -60,7 +61,7 @@ router.get("/suspicious", requireAuth, requireAdmin, async (req, res) => {
 });
 
 // General audit trail
-router.get("/trail", requireAuth, requireAdmin, async (req, res) => {
+router.get("/trail", requireAuth, requirePermission("logs"), async (req, res) => {
   const { page = 1, limit = 50 } = req.query;
   const from = (page - 1) * limit;
   const to = from + Number(limit) - 1;

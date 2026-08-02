@@ -1,11 +1,12 @@
 const router = require("express").Router();
 const supabase = require("../db/supabase");
 const { requireAuth } = require("../middleware/auth");
+const { hasPermission } = require("../utils/permissions");
 
 const TYPES = ["cold_email", "vendor_call", "tech_screening", "interview", "offer"];
 
 function canModify(req, row) {
-  return req.user.role === "admin" || row.user_id === req.user.userId;
+  return hasPermission(req.user, "activities") || row.user_id === req.user.userId;
 }
 
 function pickFields(body) {
@@ -28,6 +29,7 @@ router.get("/", requireAuth, async (req, res) => {
     .order("activity_date", { ascending: false });
 
   if (req.user.role === "admin") {
+    if (!hasPermission(req.user, "activities")) return res.status(403).json({ error: "You don't have access to this section" });
     if (req.query.user_id) query = query.eq("user_id", req.query.user_id);
   } else {
     query = query.eq("user_id", req.user.userId);
