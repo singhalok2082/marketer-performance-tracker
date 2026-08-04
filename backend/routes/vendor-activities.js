@@ -56,6 +56,7 @@ router.post("/", requireAuth, async (req, res) => {
       user_id: req.user.userId,
       ...fields,
       vendor_company: fields.vendor_company?.trim() || null,
+      employment_type: fields.employment_type || null,
       notes: fields.notes?.trim() || null,
       application_id: fields.application_id || null,
       activity_date: fields.activity_date || undefined,
