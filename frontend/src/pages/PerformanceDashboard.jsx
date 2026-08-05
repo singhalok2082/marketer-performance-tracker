@@ -10,6 +10,7 @@ import RecruiterOutreach from "../components/tracker/RecruiterOutreach";
 import VendorActivities from "../components/tracker/VendorActivities";
 import DailyNotes from "../components/tracker/DailyNotes";
 import Support from "../components/tracker/Support";
+import LiveFeed from "../components/tracker/LiveFeed";
 
 export const img = (name) => `${import.meta.env.BASE_URL}images/${name}.jpg`;
 
@@ -665,6 +666,9 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
                     </div>
                   ))}
                 </div>
+
+                {/* Live feed of daily work, admins only */}
+                {isAdmin && <LiveFeed />}
 
                 {/* Asset inventory */}
                 <div className={`${cardCls} px-4 py-2.5 mb-2 flex items-baseline justify-between`}>

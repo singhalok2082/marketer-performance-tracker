@@ -75,4 +75,64 @@ router.get("/trail", requireAuth, requirePermission("logs"), async (req, res) =>
   res.json({ data: data || [], total: count || 0 });
 });
 
+// Live feed: who logged what work, grouped by account manager, for one day.
+const FEED_ACTIONS = [
+  "CREATE_APPLICATION", "CREATE_OUTREACH", "CREATE_VENDOR_ACTIVITY",
+  "CREATE_LINKEDIN_PROFILE", "UPLOAD_RESUME", "CREATE_TICKET", "SET_DAILY_NOTE",
+];
+const VA_VERBS = { cold_email: "cold email", vendor_call: "vendor call", tech_screening: "tech screening", interview: "interview", offer: "offer" };
+const FEED_CATEGORY = {
+  CREATE_APPLICATION: "applications", CREATE_OUTREACH: "outreach",
+  CREATE_LINKEDIN_PROFILE: "linkedin", UPLOAD_RESUME: "resumes",
+  CREATE_TICKET: "tickets", SET_DAILY_NOTE: "notes",
+};
+function describeFeedEvent(row) {
+  const m = row.metadata || {};
+  if (row.action === "CREATE_VENDOR_ACTIVITY") {
+    const type = m.activity_type || "activity";
+    return { category: type, label: `Logged a ${VA_VERBS[type] || type} with ${m.vendor_company || "a vendor"}` };
+  }
+  switch (row.action) {
+    case "CREATE_APPLICATION":      return { category: "applications", label: `Applied to ${m.job_title || "a role"}` };
+    case "CREATE_OUTREACH":         return { category: "outreach", label: `Logged inbound requirement from ${m.vendor_company || "a vendor"}` };
+    case "CREATE_LINKEDIN_PROFILE": return { category: "linkedin", label: `Added LinkedIn profile: ${m.title || "untitled"}` };
+    case "UPLOAD_RESUME":           return { category: "resumes", label: `Uploaded resume: ${m.title || "untitled"}` };
+    case "CREATE_TICKET":           return { category: "tickets", label: `Raised a support ticket: ${m.subject || "untitled"}` };
+    case "SET_DAILY_NOTE":          return { category: "notes", label: "Logged today's blocker note" };
+    default:                        return { category: FEED_CATEGORY[row.action] || "other", label: row.action };
+  }
+}
+
+router.get("/feed", requireAuth, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ error: "Admin access required" });
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : new Date().toISOString().slice(0, 10);
+  const start = `${date}T00:00:00.000Z`;
+  const end = new Date(new Date(start).getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .select("*")
+    .in("action", FEED_ACTIONS)
+    .gte("created_at", start)
+    .lt("created_at", end)
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const byUser = new Map();
+  for (const row of data || []) {
+    const uid = row.actor_id || "unknown";
+    if (!byUser.has(uid)) byUser.set(uid, { user_id: uid, user_name: row.actor_name || "Unknown", total: 0, counts: {}, events: [] });
+    const bucket = byUser.get(uid);
+    const { category, label } = describeFeedEvent(row);
+
+    bucket.total += 1;
+    bucket.counts[category] = (bucket.counts[category] || 0) + 1;
+    bucket.events.push({ id: row.id, time: row.created_at, category, label });
+  }
+
+  const managers = Array.from(byUser.values()).sort((a, b) => b.total - a.total);
+  res.json({ date, managers });
+});
+
 module.exports = router;
