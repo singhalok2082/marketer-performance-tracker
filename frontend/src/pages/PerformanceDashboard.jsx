@@ -11,6 +11,7 @@ import VendorActivities from "../components/tracker/VendorActivities";
 import DailyNotes from "../components/tracker/DailyNotes";
 import Support from "../components/tracker/Support";
 import LiveFeed from "../components/tracker/LiveFeed";
+import DailyTasks from "../components/tracker/DailyTasks";
 
 export const img = (name) => `${import.meta.env.BASE_URL}images/${name}.jpg`;
 
@@ -102,6 +103,7 @@ const TABS = [
   ["applications", "Applications"],
   ["outreach", "Inbound Requirements"],
   ["activities", "Vendor Activities"],
+  ["tasks", "Daily Tasks"],
   ["notes", "Daily Notes"],
   ["linkedin", "LinkedIn Profiles"],
   ["resumes", "Resumes"],
@@ -631,7 +633,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         {/* ══ BODY ══ */}
         <div className="px-8 py-6 pb-16 flex-1">
 
-          {["linkedin", "resumes", "emails", "phone-numbers", "applications", "outreach", "activities", "notes", "support"].includes(s.tab) && (
+          {["linkedin", "resumes", "emails", "phone-numbers", "applications", "outreach", "activities", "tasks", "notes", "support"].includes(s.tab) && (
             <div className={`${cardCls} p-6`}>
               {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
               {s.tab === "resumes" && <Resumes user={user} />}
@@ -640,6 +642,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
               {s.tab === "applications" && <JobApplications user={user} />}
               {s.tab === "outreach" && <RecruiterOutreach user={user} />}
               {s.tab === "activities" && <VendorActivities user={user} />}
+              {s.tab === "tasks" && <DailyTasks user={user} />}
               {s.tab === "notes" && <DailyNotes user={user} />}
               {s.tab === "support" && <Support user={user} />}
             </div>

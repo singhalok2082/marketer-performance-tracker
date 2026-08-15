@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity, ScrollText, BarChart3, ShieldAlert, Users, Link2, KeyRound,
-  Send, Inbox, Phone, NotebookPen, Contact2, FileText, Menu, LogOut, ArrowLeft, LifeBuoy, Globe,
+  Send, Inbox, Phone, ListChecks, NotebookPen, Contact2, FileText, Menu, LogOut, ArrowLeft, LifeBuoy, Globe,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/client";
@@ -22,13 +22,14 @@ import Resumes from "../../components/tracker/Resumes";
 import JobApplications from "../../components/tracker/JobApplications";
 import RecruiterOutreach from "../../components/tracker/RecruiterOutreach";
 import VendorActivities from "../../components/tracker/VendorActivities";
+import DailyTasks from "../../components/tracker/DailyTasks";
 import DailyNotes from "../../components/tracker/DailyNotes";
 import Support from "../../components/tracker/Support";
 
 const TAB_ICONS = {
   sessions: Activity, logs: ScrollText, analytics: BarChart3, traffic: Globe, suspicious: ShieldAlert,
   users: Users, portals: Link2, passwords: KeyRound,
-  applications: Send, outreach: Inbox, activities: Phone, notes: NotebookPen,
+  applications: Send, outreach: Inbox, activities: Phone, tasks: ListChecks, notes: NotebookPen,
   linkedin: Contact2, resumes: FileText, support: LifeBuoy,
 };
 const ALL_TABS = PERMISSION_SECTIONS.map(({ key, label }) => ({ id: key, label, Icon: TAB_ICONS[key] }));
@@ -233,6 +234,7 @@ export default function AdminDashboard() {
               {tab === "applications" && <JobApplications user={user} />}
               {tab === "outreach"     && <RecruiterOutreach user={user} />}
               {tab === "activities"   && <VendorActivities user={user} />}
+              {tab === "tasks"        && <DailyTasks user={user} />}
               {tab === "notes"        && <DailyNotes user={user} />}
               {tab === "support"      && <Support user={user} />}
               </>

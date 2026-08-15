@@ -12,6 +12,7 @@ export const PERMISSION_SECTIONS = [
   { key: "applications", label: "Applications" },
   { key: "outreach",     label: "Inbound Requirements" },
   { key: "activities",   label: "Vendor Activities" },
+  { key: "tasks",        label: "Daily Tasks" },
   { key: "notes",        label: "Daily Notes" },
   { key: "linkedin",     label: "LinkedIn Profiles" },
   { key: "resumes",      label: "Resumes" },
