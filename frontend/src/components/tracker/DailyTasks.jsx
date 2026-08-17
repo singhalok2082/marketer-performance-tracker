@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Upload, Contact2, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import api from "../../api/client";
 
@@ -24,15 +24,28 @@ export default function DailyTasks({ user }) {
 
 /* ═══════════════════════ Account manager: my checklist ═══════════════════════ */
 
+function fmtAssignedDate(dateStr) {
+  return new Date(dateStr + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 function LeadCard({ item, onToggle, onSaveNotes }) {
   const { lead } = item;
   const [notes, setNotes] = useState(item.notes || "");
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const isOverdue = item.status === "pending" && item.assignment_date && item.assignment_date < TODAY;
 
   return (
     <div className="border border-border rounded-lg p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-semibold text-[13.5px] truncate">{lead.full_name}</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="font-semibold text-[13.5px] truncate">{lead.full_name}</div>
+            {item.assignment_date && (
+              <span className={`badge flex-shrink-0 ${isOverdue ? "bg-red-50 text-red-700" : "bg-surface-alt text-subtle"}`}>
+                {isOverdue ? "Overdue · " : "Assigned "}{fmtAssignedDate(item.assignment_date)}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-subtle truncate">{[lead.designation, lead.company_name].filter(Boolean).join(" · ") || "—"}</div>
           {lead.company_domain && <div className="text-xs text-muted truncate">{lead.company_domain}</div>}
           {lead.custom_fields && Object.keys(lead.custom_fields).length > 0 && (
@@ -80,6 +93,9 @@ function MyDailyTasks() {
   const [data, setData] = useState({ pending: [], completed: [] });
   const [loading, setLoading] = useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [view, setView] = useState("checklist");
+  const { cursor, navMonth } = useMonthCursor();
+  const [calDate, setCalDate] = useState(null);
 
   const load = useCallback(() => {
     api.get("/leads/my-tasks").then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
@@ -90,15 +106,32 @@ function MyDailyTasks() {
     setData(prev => {
       const merged = [...prev.pending, ...prev.completed].map(i => i.id === id ? { ...i, ...updates } : i);
       const pending = [], completed = [];
-      for (const item of merged) {
+      for (let item of merged) {
         const hasCall = !!item.lead.phone, hasEmail = !!item.lead.email;
         const isDone = (hasCall || hasEmail) && (!hasCall || item.call_done) && (!hasEmail || item.email_done);
+        item = { ...item, status: isDone ? "done" : "pending" };
         (isDone ? completed : pending).push(item);
       }
       return { pending, completed };
     });
     api.patch(`/leads/assignments/${id}`, updates).catch(() => load());
   };
+
+  const allItems = useMemo(() => [...data.pending, ...data.completed], [data]);
+
+  const dayData = useMemo(() => {
+    const map = new Map();
+    for (const item of allItems) {
+      if (!item.assignment_date) continue;
+      if (!map.has(item.assignment_date)) map.set(item.assignment_date, { date: item.assignment_date, total: 0, done: 0, pending: 0 });
+      const bucket = map.get(item.assignment_date);
+      bucket.total += 1;
+      item.status === "done" ? bucket.done++ : bucket.pending++;
+    }
+    return map;
+  }, [allItems]);
+
+  const calItems = calDate ? allItems.filter(i => i.assignment_date === calDate) : [];
 
   const total = data.pending.length + data.completed.length;
 
@@ -107,39 +140,77 @@ function MyDailyTasks() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="flex justify-between text-xs text-medium mb-1">
-          <span>{data.completed.length} of {total} done</span>
-          <span className="text-subtle">{data.pending.length} remaining</span>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
+          <div className="flex justify-between text-xs text-medium mb-1">
+            <span>{data.completed.length} of {total} done</span>
+            <span className="text-subtle">{data.pending.length} remaining</span>
+          </div>
+          <div className="bg-surface-alt rounded h-1.5">
+            <div className="bg-emerald-500 h-full rounded transition-all" style={{ width: `${total ? (data.completed.length / total) * 100 : 0}%` }} />
+          </div>
         </div>
-        <div className="bg-surface-alt rounded h-1.5">
-          <div className="bg-emerald-500 h-full rounded transition-all" style={{ width: `${total ? (data.completed.length / total) * 100 : 0}%` }} />
+        <div className="flex bg-surface-alt rounded-lg p-1">
+          {[["checklist", "Checklist"], ["calendar", "Calendar"]].map(([key, label]) => (
+            <button key={key} onClick={() => setView(key)}
+              className={`h-7 px-3.5 rounded-md text-xs font-semibold transition-colors ${view === key ? "bg-white text-dark shadow-sm" : "text-muted hover:text-dark"}`}>
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="space-y-2.5">
-        {data.pending.map(item => (
-          <LeadCard key={item.id} item={item}
-            onToggle={(id, field, val) => patch(id, { [field]: val })}
-            onSaveNotes={(id, notes) => patch(id, { notes })} />
-        ))}
-        {data.pending.length === 0 && <div className="text-sm text-subtle text-center py-6">All caught up — nice work.</div>}
-      </div>
+      {view === "checklist" ? (
+        <>
+          <div className="space-y-2.5">
+            {data.pending.map(item => (
+              <LeadCard key={item.id} item={item}
+                onToggle={(id, field, val) => patch(id, { [field]: val })}
+                onSaveNotes={(id, notes) => patch(id, { notes })} />
+            ))}
+            {data.pending.length === 0 && <div className="text-sm text-subtle text-center py-6">All caught up — nice work.</div>}
+          </div>
 
-      {data.completed.length > 0 && (
-        <div>
-          <button onClick={() => setShowCompleted(s => !s)} className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-dark">
-            <CheckCircle2 size={14} className="text-emerald-500" /> {data.completed.length} completed {showCompleted ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </button>
-          {showCompleted && (
-            <div className="space-y-2.5 mt-2.5">
-              {data.completed.map(item => (
-                <LeadCard key={item.id} item={item}
-                  onToggle={(id, field, val) => patch(id, { [field]: val })}
-                  onSaveNotes={(id, notes) => patch(id, { notes })} />
-              ))}
+          {data.completed.length > 0 && (
+            <div>
+              <button onClick={() => setShowCompleted(s => !s)} className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-dark">
+                <CheckCircle2 size={14} className="text-emerald-500" /> {data.completed.length} completed {showCompleted ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+              {showCompleted && (
+                <div className="space-y-2.5 mt-2.5">
+                  {data.completed.map(item => (
+                    <LeadCard key={item.id} item={item}
+                      onToggle={(id, field, val) => patch(id, { [field]: val })}
+                      onSaveNotes={(id, notes) => patch(id, { notes })} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
+        </>
+      ) : (
+        <div className="grid gap-4 items-start" style={{ gridTemplateColumns: "340px 1fr" }}>
+          <div className="card p-4">
+            <MonthCalendar year={cursor.year} month={cursor.month} dayData={dayData} selectedDate={calDate} onSelectDate={setCalDate} onNavMonth={navMonth} />
+          </div>
+          <div className="card p-5">
+            {!calDate ? (
+              <div className="text-sm text-subtle text-center py-16">Pick a highlighted day to see what was assigned to you then.</div>
+            ) : calItems.length === 0 ? (
+              <div className="text-sm text-subtle text-center py-16">Nothing assigned on this day.</div>
+            ) : (
+              <div className="space-y-2.5">
+                <div className="text-[13.5px] font-bold mb-1">
+                  {new Date(calDate + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}
+                </div>
+                {calItems.map(item => (
+                  <LeadCard key={item.id} item={item}
+                    onToggle={(id, field, val) => patch(id, { [field]: val })}
+                    onSaveNotes={(id, notes) => patch(id, { notes })} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -160,7 +231,7 @@ function AdminDailyTasks() {
   return (
     <div className="space-y-4">
       <div className="flex bg-surface-alt rounded-lg p-1 w-fit">
-        {[["assign", "Upload & Assign"], ["progress", "Progress"]].map(([key, label]) => (
+        {[["assign", "Upload & Assign"], ["progress", "Progress"], ["calendar", "Calendar"]].map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)}
             className={`h-7 px-3.5 rounded-md text-xs font-semibold transition-colors ${subTab === key ? "bg-white text-dark shadow-sm" : "text-muted hover:text-dark"}`}>
             {label}
@@ -169,6 +240,7 @@ function AdminDailyTasks() {
       </div>
       {subTab === "assign" && <AssignPanel poolCount={poolCount} onPoolChange={refreshPool} />}
       {subTab === "progress" && <ProgressPanel />}
+      {subTab === "calendar" && <CalendarPanel />}
     </div>
   );
 }
@@ -387,9 +459,7 @@ function AssignPanel({ poolCount, onPoolChange }) {
   );
 }
 
-function ProgressPanel() {
-  const TODAY = new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(TODAY);
+function DayBreakdown({ date }) {
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(() => new Set());
@@ -405,52 +475,164 @@ function ProgressPanel() {
     return next;
   });
 
+  if (loading) return <div className="text-sm text-muted py-6 text-center">Loading…</div>;
+  if (managers.length === 0) return <div className="text-sm text-subtle py-6 text-center">No leads were assigned on this day.</div>;
+
+  return (
+    <div className="space-y-2">
+      {managers.map(m => {
+        const open = expanded.has(m.user_id);
+        return (
+          <div key={m.user_id} className="border border-border rounded-lg overflow-hidden">
+            <button onClick={() => toggle(m.user_id)} className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-surface transition-colors">
+              <div className="font-semibold text-[13px]">{m.user_name}</div>
+              <div className="flex items-center gap-3">
+                <span className="badge bg-emerald-50 text-emerald-700">{m.done} done</span>
+                <span className="badge bg-amber-50 text-amber-700">{m.pending} pending</span>
+                <span className="text-xs text-subtle">{m.total} total</span>
+                {open ? <ChevronUp size={15} className="text-muted" /> : <ChevronDown size={15} className="text-muted" />}
+              </div>
+            </button>
+            {open && (
+              <div className="border-t border-border divide-y divide-border">
+                {m.items.map(it => (
+                  <div key={it.id} className="px-3.5 py-2 flex items-center justify-between gap-3 text-[13px]">
+                    <div className="min-w-0">
+                      <span className="font-medium">{it.lead.full_name}</span>
+                      <span className="text-subtle"> · {[it.lead.designation, it.lead.company_name].filter(Boolean).join(" · ") || "—"}</span>
+                    </div>
+                    <span className={`badge flex-shrink-0 ${it.status === "done" ? "bg-emerald-50 text-emerald-700" : it.status === "no_contact" ? "bg-gray-100 text-gray-600" : "bg-amber-50 text-amber-700"}`}>
+                      {it.status === "done" ? "Done" : it.status === "no_contact" ? "No contact info" : "Pending"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProgressPanel() {
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(TODAY);
+
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-3.5">
         <div className="text-[13.5px] font-bold">Batches assigned on this day</div>
         <input type="date" value={date} max={TODAY} onChange={e => setDate(e.target.value)} className="h-8 rounded-lg border border-border px-2 text-xs" />
       </div>
+      <DayBreakdown date={date} />
+    </div>
+  );
+}
 
-      {loading ? (
-        <div className="text-sm text-muted py-6 text-center">Loading…</div>
-      ) : managers.length === 0 ? (
-        <div className="text-sm text-subtle py-6 text-center">No leads were assigned on this day.</div>
-      ) : (
-        <div className="space-y-2">
-          {managers.map(m => {
-            const open = expanded.has(m.user_id);
-            return (
-              <div key={m.user_id} className="border border-border rounded-lg overflow-hidden">
-                <button onClick={() => toggle(m.user_id)} className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-surface transition-colors">
-                  <div className="font-semibold text-[13px]">{m.user_name}</div>
-                  <div className="flex items-center gap-3">
-                    <span className="badge bg-emerald-50 text-emerald-700">{m.done} done</span>
-                    <span className="badge bg-amber-50 text-amber-700">{m.pending} pending</span>
-                    <span className="text-xs text-subtle">{m.total} total</span>
-                    {open ? <ChevronUp size={15} className="text-muted" /> : <ChevronDown size={15} className="text-muted" />}
-                  </div>
-                </button>
-                {open && (
-                  <div className="border-t border-border divide-y divide-border">
-                    {m.items.map(it => (
-                      <div key={it.id} className="px-3.5 py-2 flex items-center justify-between gap-3 text-[13px]">
-                        <div className="min-w-0">
-                          <span className="font-medium">{it.lead.full_name}</span>
-                          <span className="text-subtle"> · {[it.lead.designation, it.lead.company_name].filter(Boolean).join(" · ") || "—"}</span>
-                        </div>
-                        <span className={`badge flex-shrink-0 ${it.status === "done" ? "bg-emerald-50 text-emerald-700" : it.status === "no_contact" ? "bg-gray-100 text-gray-600" : "bg-amber-50 text-amber-700"}`}>
-                          {it.status === "done" ? "Done" : it.status === "no_contact" ? "No contact info" : "Pending"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+/* ═══════════════════════ Shared: month calendar grid ═══════════════════════ */
+
+function MonthCalendar({ year, month, dayData, selectedDate, onSelectDate, onNavMonth }) {
+  const firstOfMonth = new Date(Date.UTC(year, month, 1));
+  const startWeekday = firstOfMonth.getUTCDay();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const cells = Array(startWeekday).fill(null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1));
+  const monthLabel = firstOfMonth.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => onNavMonth(-1)} className={ghostBtn}>&larr; Prev</button>
+        <div className="text-[13.5px] font-bold">{monthLabel}</div>
+        <button onClick={() => onNavMonth(1)} className={ghostBtn}>Next &rarr;</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+          <div key={d} className="text-[10px] font-semibold text-subtle uppercase text-center py-1">{d}</div>
+        ))}
+        {cells.map((d, i) => {
+          if (d === null) return <div key={`blank-${i}`} />;
+          const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          const info = dayData.get(dateStr);
+          const isToday = dateStr === todayStr;
+          const isSelected = dateStr === selectedDate;
+          return (
+            <button key={dateStr} onClick={() => info && onSelectDate(dateStr)}
+              className={`aspect-square rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-colors ${
+                isSelected ? "border-primary bg-primary-tint" : isToday ? "border-zinc-400" : "border-border"
+              } ${info ? "hover:border-zinc-400 cursor-pointer" : "cursor-default"}`}>
+              <div className={`text-[11px] font-semibold ${isToday ? "text-primary" : "text-dark"}`}>{d}</div>
+              {info && (
+                <>
+                  <div className="text-[9px] text-emerald-600 font-bold leading-none">{info.done}/{info.total}</div>
+                  {info.pending > 0 && <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                </>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function useMonthCursor() {
+  const now = new Date();
+  const [cursor, setCursor] = useState({ year: now.getUTCFullYear(), month: now.getUTCMonth() });
+  const navMonth = (delta) => setCursor(prev => {
+    let month = prev.month + delta, year = prev.year;
+    if (month < 0) { month = 11; year -= 1; }
+    if (month > 11) { month = 0; year += 1; }
+    return { year, month };
+  });
+  const start = `${cursor.year}-${String(cursor.month + 1).padStart(2, "0")}-01`;
+  const end = new Date(Date.UTC(cursor.year, cursor.month + 1, 0)).toISOString().slice(0, 10);
+  return { cursor, navMonth, start, end };
+}
+
+function CalendarPanel() {
+  const { cursor, navMonth, start, end } = useMonthCursor();
+  const [dayData, setDayData] = useState(new Map());
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setSelectedDate(null);
+    api.get(`/leads/calendar?start=${start}&end=${end}`)
+      .then(r => setDayData(new Map(r.data.days.map(d => [d.date, d]))))
+      .catch(() => {}).finally(() => setLoading(false));
+  }, [start, end]);
+
+  const selectedInfo = selectedDate ? dayData.get(selectedDate) : null;
+
+  return (
+    <div className="grid gap-4 items-start" style={{ gridTemplateColumns: "340px 1fr" }}>
+      <div className="card p-4">
+        <MonthCalendar year={cursor.year} month={cursor.month} dayData={dayData} selectedDate={selectedDate} onSelectDate={setSelectedDate} onNavMonth={navMonth} />
+        {loading && <div className="text-xs text-subtle mt-2 text-center">Loading…</div>}
+      </div>
+      <div className="card p-5">
+        {!selectedDate ? (
+          <div className="text-sm text-subtle text-center py-16">Pick a highlighted day to see who was assigned what and who's finished.</div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-3.5 flex-wrap gap-2">
+              <div className="text-[13.5px] font-bold">
+                {new Date(selectedDate + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}
               </div>
-            );
-          })}
-        </div>
-      )}
+              {selectedInfo && (
+                <div className="flex gap-2">
+                  <span className="badge bg-emerald-50 text-emerald-700">{selectedInfo.managers_done}/{selectedInfo.managers_total} managers done</span>
+                  <span className="badge bg-amber-50 text-amber-700">{selectedInfo.pending} leads pending</span>
+                </div>
+              )}
+            </div>
+            <DayBreakdown date={selectedDate} />
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -42,11 +42,29 @@ function suggestMapping(headers) {
     const idx = normalized.findIndex((n, i) => !usedHeaders.has(i) && SYNONYMS[field].includes(n));
     if (idx !== -1) { mapping[headers[idx]] = field; usedHeaders.add(idx); usedFields.add(field); }
   }
-  // Pass 2: substring matches for whatever's left
+  // Pass 2: best substring match for whatever's left — prefer the longest
+  // (most specific) synonym found across ALL headers, not just the first
+  // header that loosely matches. Without this, a header like "Find work
+  // email" (matches the short synonym "email") would beat out "Contact
+  // Email Address - Data" (matches the longer, more specific
+  // "emailaddress") just for appearing first in the file — even when the
+  // first column is an empty helper column and the second holds the real
+  // data. Ties break on how close the header's length is to the synonym's
+  // (the more of the header the match accounts for, the better).
   for (const field of CANONICAL_FIELDS) {
     if (usedFields.has(field)) continue;
-    const idx = normalized.findIndex((n, i) => !usedHeaders.has(i) && SYNONYMS[field].some(s => n.includes(s)));
-    if (idx !== -1) { mapping[headers[idx]] = field; usedHeaders.add(idx); usedFields.add(field); }
+    let best = null;
+    normalized.forEach((n, i) => {
+      if (usedHeaders.has(i)) return;
+      for (const syn of SYNONYMS[field]) {
+        if (!n.includes(syn)) continue;
+        const gap = n.length - syn.length;
+        if (!best || syn.length > best.synLen || (syn.length === best.synLen && gap < best.gap)) {
+          best = { idx: i, synLen: syn.length, gap };
+        }
+      }
+    });
+    if (best) { mapping[headers[best.idx]] = field; usedHeaders.add(best.idx); usedFields.add(field); }
   }
   // Everything else: suggest as a custom field
   headers.forEach((h, i) => {
@@ -168,11 +186,8 @@ router.post("/uploads/:id/commit", requireAuth, requirePermission("tasks"), asyn
 // ─────────────── Pool + assignment ───────────────
 
 router.get("/pool-count", requireAuth, requirePermission("tasks"), async (_req, res) => {
-  const [{ count: totalLeads }, { count: totalAssigned }] = await Promise.all([
-    supabase.from("leads").select("id", { count: "exact", head: true }),
-    supabase.from("lead_assignments").select("id", { count: "exact", head: true }),
-  ]);
-  res.json({ pool: (totalLeads || 0) - (totalAssigned || 0) });
+  const { count } = await supabase.from("leads").select("id", { count: "exact", head: true }).eq("is_assigned", false);
+  res.json({ pool: count || 0 });
 });
 
 router.post("/assign", requireAuth, requirePermission("tasks"), async (req, res) => {
@@ -181,12 +196,9 @@ router.post("/assign", requireAuth, requirePermission("tasks"), async (req, res)
   const totalRequested = entries.reduce((sum, [, n]) => sum + Number(n), 0);
   if (entries.length === 0) return res.status(400).json({ error: "Set at least one manager's lead count" });
 
-  const { data: assignedRows } = await supabase.from("lead_assignments").select("lead_id");
-  const assignedIds = (assignedRows || []).map(r => r.lead_id);
-
-  let poolQuery = supabase.from("leads").select("id").order("created_at", { ascending: true }).limit(totalRequested);
-  if (assignedIds.length > 0) poolQuery = poolQuery.not("id", "in", `(${assignedIds.join(",")})`);
-  const { data: freshLeads, error: poolErr } = await poolQuery;
+  const { data: freshLeads, error: poolErr } = await supabase
+    .from("leads").select("id").eq("is_assigned", false)
+    .order("created_at", { ascending: true }).limit(totalRequested);
   if (poolErr) return res.status(500).json({ error: poolErr.message });
 
   const today = new Date().toISOString().slice(0, 10);
@@ -205,6 +217,8 @@ router.post("/assign", requireAuth, requirePermission("tasks"), async (req, res)
   if (rows.length > 0) {
     const { error: insertErr } = await supabase.from("lead_assignments").insert(rows);
     if (insertErr) return res.status(500).json({ error: insertErr.message });
+
+    await supabase.from("leads").update({ is_assigned: true }).in("id", rows.map(r => r.lead_id));
 
     await supabase.from("audit_logs").insert({
       actor_id: req.user.userId, actor_name: req.user.name,
@@ -280,6 +294,50 @@ router.get("/my-tasks", requireAuth, async (req, res) => {
   completed.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
 
   res.json({ pending, completed });
+});
+
+// Calendar: per-day totals for a date range. Account managers only ever see
+// their own; admins get an aggregate across everyone, plus how many managers
+// are fully done for that day vs. still have something pending.
+router.get("/calendar", requireAuth, async (req, res) => {
+  const { start, end } = req.query;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    return res.status(400).json({ error: "start and end (YYYY-MM-DD) are required" });
+  }
+
+  let query = supabase
+    .from("lead_assignments")
+    .select("assignment_date, user_id, call_done, email_done, leads(phone, email)")
+    .gte("assignment_date", start)
+    .lte("assignment_date", end);
+  if (req.user.role !== "admin") query = query.eq("user_id", req.user.userId);
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+
+  const byDate = new Map();
+  for (const row of data || []) {
+    if (!byDate.has(row.assignment_date)) byDate.set(row.assignment_date, { date: row.assignment_date, total: 0, done: 0, pending: 0, users: new Map() });
+    const bucket = byDate.get(row.assignment_date);
+    const isDone = leadStatus(row) === "done";
+    bucket.total += 1;
+    isDone ? bucket.done++ : bucket.pending++;
+    if (!bucket.users.has(row.user_id)) bucket.users.set(row.user_id, { total: 0, done: 0 });
+    const u = bucket.users.get(row.user_id);
+    u.total += 1;
+    if (isDone) u.done += 1;
+  }
+
+  const days = Array.from(byDate.values()).map(b => {
+    const managersTotal = b.users.size;
+    const managersDone = Array.from(b.users.values()).filter(u => u.done === u.total).length;
+    return {
+      date: b.date, total: b.total, done: b.done, pending: b.pending,
+      managers_total: managersTotal, managers_done: managersDone, managers_pending: managersTotal - managersDone,
+    };
+  }).sort((a, b) => a.date.localeCompare(b.date));
+
+  res.json({ days });
 });
 
 router.patch("/assignments/:id", requireAuth, async (req, res) => {
