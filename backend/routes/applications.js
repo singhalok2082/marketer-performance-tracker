@@ -2,6 +2,7 @@ const router = require("express").Router();
 const supabase = require("../db/supabase");
 const { requireAuth } = require("../middleware/auth");
 const { hasPermission } = require("../utils/permissions");
+const { matchCandidateId } = require("../utils/candidateMatch");
 
 function canModify(req, row) {
   return hasPermission(req.user, "applications") || row.user_id === req.user.userId;
@@ -42,6 +43,11 @@ router.post("/", requireAuth, async (req, res) => {
   const { portal_id, job_url, job_title, candidate_info, job_description, resume_id, applied_date, status, candidate_id } = req.body;
   if (!job_title?.trim()) return res.status(400).json({ error: "Job title is required" });
 
+  // Auto-link by name when the picker wasn't used — same reasoning as
+  // vendor-activities.js: relying on everyone remembering a dropdown is how
+  // this sync quietly breaks.
+  const resolvedCandidateId = candidate_id || (candidate_info ? await matchCandidateId(candidate_info) : null);
+
   const { data, error } = await supabase
     .from("job_applications")
     .insert({
@@ -54,7 +60,7 @@ router.post("/", requireAuth, async (req, res) => {
       resume_id: resume_id || null,
       applied_date: applied_date || undefined,
       status: status || undefined,
-      candidate_id: candidate_id || null,
+      candidate_id: resolvedCandidateId,
     })
     .select("*, users(name), portals(name), resumes(title), candidates(marketing_name, legal_name)")
     .single();
@@ -76,7 +82,7 @@ router.post("/", requireAuth, async (req, res) => {
 
 router.patch("/:id", requireAuth, async (req, res) => {
   const { data: existing, error: findErr } = await supabase
-    .from("job_applications").select("id, user_id").eq("id", req.params.id).single();
+    .from("job_applications").select("id, user_id, candidate_id").eq("id", req.params.id).single();
   if (findErr || !existing) return res.status(404).json({ error: "Not found" });
   if (!canModify(req, existing)) return res.status(403).json({ error: "Not allowed" });
 
@@ -91,6 +97,10 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if (applied_date !== undefined) updates.applied_date = applied_date;
   if (status !== undefined) updates.status = status;
   if (candidate_id !== undefined) updates.candidate_id = candidate_id || null;
+  // Corrected name, still unlinked — try matching again rather than leaving it stuck.
+  if (candidate_id === undefined && candidate_info !== undefined && !existing.candidate_id) {
+    updates.candidate_id = await matchCandidateId(candidate_info);
+  }
 
   const { data, error } = await supabase
     .from("job_applications").update(updates).eq("id", req.params.id)

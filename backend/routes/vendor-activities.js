@@ -2,6 +2,7 @@ const router = require("express").Router();
 const supabase = require("../db/supabase");
 const { requireAuth } = require("../middleware/auth");
 const { hasPermission } = require("../utils/permissions");
+const { matchCandidateId } = require("../utils/candidateMatch");
 
 const TYPES = ["cold_email", "vendor_call", "tech_screening", "interview", "offer"];
 
@@ -54,6 +55,11 @@ router.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({ error: `activity_type must be one of: ${TYPES.join(", ")}` });
   }
 
+  // Nobody reliably remembers to use the "Bench Candidate" picker every
+  // time — auto-link by name when they didn't, so this doesn't silently
+  // stop syncing to the candidate's profile just because a dropdown got skipped.
+  const candidateId = fields.candidate_id || (fields.candidate_name ? await matchCandidateId(fields.candidate_name) : null);
+
   const { data, error } = await supabase
     .from("vendor_activities")
     .insert({
@@ -63,7 +69,7 @@ router.post("/", requireAuth, async (req, res) => {
       employment_type: fields.employment_type || null,
       notes: fields.notes?.trim() || null,
       application_id: fields.application_id || null,
-      candidate_id: fields.candidate_id || null,
+      candidate_id: candidateId,
       activity_date: fields.activity_date || undefined,
     })
     .select("*, users(name), candidates(marketing_name, legal_name)")
@@ -83,7 +89,7 @@ router.post("/", requireAuth, async (req, res) => {
 
 router.patch("/:id", requireAuth, async (req, res) => {
   const { data: existing, error: findErr } = await supabase
-    .from("vendor_activities").select("id, user_id").eq("id", req.params.id).single();
+    .from("vendor_activities").select("id, user_id, candidate_id").eq("id", req.params.id).single();
   if (findErr || !existing) return res.status(404).json({ error: "Not found" });
   if (!canModify(req, existing)) return res.status(403).json({ error: "Not allowed" });
 
@@ -94,6 +100,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
   if (updates.activity_type && !TYPES.includes(updates.activity_type)) {
     return res.status(400).json({ error: `activity_type must be one of: ${TYPES.join(", ")}` });
+  }
+  // If the name changed (e.g. fixing a typo) and it's still not explicitly
+  // linked, try matching again instead of leaving a corrected name unlinked.
+  if (updates.candidate_id === undefined && updates.candidate_name !== undefined && !existing.candidate_id) {
+    updates.candidate_id = await matchCandidateId(updates.candidate_name);
   }
 
   const { data, error } = await supabase
