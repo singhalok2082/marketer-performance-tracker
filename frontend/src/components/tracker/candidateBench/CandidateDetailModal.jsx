@@ -178,33 +178,72 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
               </div>
 
               <div>
+                <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Vendor activity</div>
+                <p className="text-xs text-muted -mt-0.5 mb-2">
+                  Screenings, interviews, and offers logged for this candidate from the Vendor Activities tracker.
+                  {activity?.vendorActivities.scope === "own" && " Showing only entries you logged — an admin sees everyone's."}
+                </p>
+                {!activity || activity.vendorActivities.items.length === 0 ? (
+                  <div className="text-sm text-muted">No linked vendor activity yet — link one from the Vendor Activities tab.</div>
+                ) : (
+                  <>
+                    <div className="text-sm mb-2">
+                      {activity.vendorActivities.summary.byType.tech_screening || 0} screening{(activity.vendorActivities.summary.byType.tech_screening || 0) === 1 ? "" : "s"}
+                      {" · "}{activity.vendorActivities.summary.byType.interview || 0} interview{(activity.vendorActivities.summary.byType.interview || 0) === 1 ? "" : "s"}
+                      {" · "}{activity.vendorActivities.summary.byType.offer || 0} offer{(activity.vendorActivities.summary.byType.offer || 0) === 1 ? "" : "s"}
+                    </div>
+                    {activity.vendorActivities.scope === "all" && activity.vendorActivities.summary.byManager.length > 1 && (
+                      <ul className="text-xs text-muted space-y-0.5 mb-2">
+                        {activity.vendorActivities.summary.byManager.map(m => (
+                          <li key={m.user_name}>{m.user_name || "—"}: {m.interviews} interview{m.interviews === 1 ? "" : "s"}, {m.offers} offer{m.offers === 1 ? "" : "s"}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <ul className="text-sm space-y-1.5">
+                      {activity.vendorActivities.items.map(a => (
+                        <li key={a.id} className="flex items-center justify-between gap-2">
+                          <span className="truncate">
+                            {a.client_name || a.vendor_company || "—"} · {fmtDate(a.activity_date)}
+                            {activity.vendorActivities.scope === "all" && a.user_name ? ` · ${a.user_name}` : ""}
+                          </span>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${activityStatusClass(a.activity_type === "offer" ? "Offer" : a.activity_type === "interview" ? "Interview Scheduled" : "")}`}>
+                            {a.activity_type === "tech_screening" ? "Tech Screening" : a.activity_type[0].toUpperCase() + a.activity_type.slice(1)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+
+              <div>
                 <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Job application activity</div>
                 <p className="text-xs text-muted -mt-0.5 mb-2">
-                  From the Job Applications tracker, for any application logged against this candidate.
-                  {activity?.scope === "own" && " Showing only applications you logged — an admin sees everyone's."}
+                  Portal submissions logged for this candidate from the Job Applications tracker.
+                  {activity?.jobApplications.scope === "own" && " Showing only applications you logged — an admin sees everyone's."}
                 </p>
-                {!activity || activity.applications.length === 0 ? (
+                {!activity || activity.jobApplications.items.length === 0 ? (
                   <div className="text-sm text-muted">No linked applications yet — link one from the Job Applications tab.</div>
                 ) : (
                   <>
                     <div className="text-sm mb-2">
-                      {activity.summary.total} application{activity.summary.total === 1 ? "" : "s"}
-                      {" · "}{activity.summary.byStatus["Interview Scheduled"] || 0} interview{(activity.summary.byStatus["Interview Scheduled"] || 0) === 1 ? "" : "s"} scheduled
-                      {" · "}{activity.summary.byStatus["Offer"] || 0} offer{(activity.summary.byStatus["Offer"] || 0) === 1 ? "" : "s"}
+                      {activity.jobApplications.summary.total} application{activity.jobApplications.summary.total === 1 ? "" : "s"}
+                      {" · "}{activity.jobApplications.summary.byStatus["Interview Scheduled"] || 0} interview{(activity.jobApplications.summary.byStatus["Interview Scheduled"] || 0) === 1 ? "" : "s"} scheduled
+                      {" · "}{activity.jobApplications.summary.byStatus["Offer"] || 0} offer{(activity.jobApplications.summary.byStatus["Offer"] || 0) === 1 ? "" : "s"}
                     </div>
-                    {activity.scope === "all" && activity.summary.byManager.length > 1 && (
+                    {activity.jobApplications.scope === "all" && activity.jobApplications.summary.byManager.length > 1 && (
                       <ul className="text-xs text-muted space-y-0.5 mb-2">
-                        {activity.summary.byManager.map(m => (
+                        {activity.jobApplications.summary.byManager.map(m => (
                           <li key={m.user_name}>{m.user_name || "—"}: {m.total} application{m.total === 1 ? "" : "s"}, {m.interviews} interview{m.interviews === 1 ? "" : "s"}, {m.offers} offer{m.offers === 1 ? "" : "s"}</li>
                         ))}
                       </ul>
                     )}
                     <ul className="text-sm space-y-1.5">
-                      {activity.applications.map(a => (
+                      {activity.jobApplications.items.map(a => (
                         <li key={a.id} className="flex items-center justify-between gap-2">
                           <span className="truncate">
                             {a.job_title}{a.portal_name ? ` — ${a.portal_name}` : ""} · {fmtDate(a.applied_date)}
-                            {activity.scope === "all" && a.user_name ? ` · ${a.user_name}` : ""}
+                            {activity.jobApplications.scope === "all" && a.user_name ? ` · ${a.user_name}` : ""}
                           </span>
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${activityStatusClass(a.status)}`}>{a.status}</span>
                         </li>

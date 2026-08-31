@@ -326,47 +326,78 @@ router.delete("/:id/offers/:offerId", requireAuth, requirePermission("bench"), a
   res.json({ ok: true });
 });
 
-// Linked activity from the (separate) Job Applications tracker — interviews/
-// offers a candidate has actually had, via job_applications.candidate_id.
-// Mirrors /api/applications' own privacy boundary: an admin with the
-// "applications" permission sees every manager's linked rows, everyone else
+// Linked activity from two separate trackers:
+//   - vendor_activities: discrete tech_screening/interview/offer log entries
+//     per candidate — this is where account managers actually log "we got
+//     Labhesh an interview / an offer", so it's the primary signal here.
+//   - job_applications: portal-submission status (Applied/.../Offer) per job.
+// Each mirrors its own route's privacy boundary: an admin with that
+// resource's permission sees every manager's linked rows, everyone else
 // (including a scoped admin without it) only sees their own.
 router.get("/:id/activity", requireAuth, async (req, res) => {
   const { data: candidate, error: findErr } = await supabase.from("candidates").select("id, approval_status, submitted_by").eq("id", req.params.id).single();
   if (findErr || !candidate) return res.status(404).json({ error: "Not found" });
   if (!canView(req, candidate)) return res.status(403).json({ error: "Not allowed" });
 
-  const seeAll = req.user.role === "admin" && hasPermission(req.user, "applications");
+  const seeAllActivities = req.user.role === "admin" && hasPermission(req.user, "activities");
+  const seeAllApps = req.user.role === "admin" && hasPermission(req.user, "applications");
 
-  let query = supabase
+  let vaQuery = supabase
+    .from("vendor_activities")
+    .select("id, activity_type, client_name, vendor_company, employment_type, activity_date, user_id, users(name)")
+    .eq("candidate_id", req.params.id)
+    .order("activity_date", { ascending: false });
+  if (!seeAllActivities) vaQuery = vaQuery.eq("user_id", req.user.userId);
+
+  let appQuery = supabase
     .from("job_applications")
     .select("id, job_title, status, applied_date, user_id, users(name), portals(name)")
     .eq("candidate_id", req.params.id)
     .order("applied_date", { ascending: false });
-  if (!seeAll) query = query.eq("user_id", req.user.userId);
+  if (!seeAllApps) appQuery = appQuery.eq("user_id", req.user.userId);
 
-  const { data, error } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  const [{ data: vaData, error: vaErr }, { data: appData, error: appErr }] = await Promise.all([vaQuery, appQuery]);
+  if (vaErr) return res.status(500).json({ error: vaErr.message });
+  if (appErr) return res.status(500).json({ error: appErr.message });
 
-  const applications = (data || []).map(({ users, portals, ...row }) => ({
+  const vendorActivities = (vaData || []).map(({ users, ...row }) => ({ ...row, user_name: users?.name || null }));
+  const applications = (appData || []).map(({ users, portals, ...row }) => ({
     ...row, user_name: users?.name || null, portal_name: portals?.name || null,
   }));
 
-  const byStatus = {};
-  const byManagerMap = new Map();
+  const vaByType = {};
+  const vaByManagerMap = new Map();
+  for (const a of vendorActivities) {
+    vaByType[a.activity_type] = (vaByType[a.activity_type] || 0) + 1;
+    if (!vaByManagerMap.has(a.user_id)) vaByManagerMap.set(a.user_id, { user_name: a.user_name, total: 0, interviews: 0, offers: 0 });
+    const m = vaByManagerMap.get(a.user_id);
+    m.total += 1;
+    if (a.activity_type === "interview") m.interviews += 1;
+    if (a.activity_type === "offer") m.offers += 1;
+  }
+
+  const appByStatus = {};
+  const appByManagerMap = new Map();
   for (const a of applications) {
-    byStatus[a.status] = (byStatus[a.status] || 0) + 1;
-    if (!byManagerMap.has(a.user_id)) byManagerMap.set(a.user_id, { user_name: a.user_name, total: 0, interviews: 0, offers: 0 });
-    const m = byManagerMap.get(a.user_id);
+    appByStatus[a.status] = (appByStatus[a.status] || 0) + 1;
+    if (!appByManagerMap.has(a.user_id)) appByManagerMap.set(a.user_id, { user_name: a.user_name, total: 0, interviews: 0, offers: 0 });
+    const m = appByManagerMap.get(a.user_id);
     m.total += 1;
     if (a.status === "Interview Scheduled") m.interviews += 1;
     if (a.status === "Offer") m.offers += 1;
   }
 
   res.json({
-    applications,
-    summary: { total: applications.length, byStatus, byManager: Array.from(byManagerMap.values()).sort((a, b) => b.total - a.total) },
-    scope: seeAll ? "all" : "own",
+    vendorActivities: {
+      items: vendorActivities,
+      summary: { total: vendorActivities.length, byType: vaByType, byManager: Array.from(vaByManagerMap.values()).sort((a, b) => b.total - a.total) },
+      scope: seeAllActivities ? "all" : "own",
+    },
+    jobApplications: {
+      items: applications,
+      summary: { total: applications.length, byStatus: appByStatus, byManager: Array.from(appByManagerMap.values()).sort((a, b) => b.total - a.total) },
+      scope: seeAllApps ? "all" : "own",
+    },
   });
 });
 

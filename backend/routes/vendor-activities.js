@@ -13,19 +13,19 @@ function pickFields(body) {
   const {
     activity_type, vendor_name, vendor_company, client_name, candidate_name,
     employment_type, job_title, jd_text, rate_usd, duration_minutes,
-    activity_date, notes, application_id,
+    activity_date, notes, application_id, candidate_id,
   } = body;
   return {
     activity_type, vendor_name, vendor_company, client_name, candidate_name,
     employment_type, job_title, jd_text, rate_usd, duration_minutes,
-    activity_date, notes, application_id,
+    activity_date, notes, application_id, candidate_id,
   };
 }
 
 router.get("/", requireAuth, async (req, res) => {
   let query = supabase
     .from("vendor_activities")
-    .select("*, users(name)")
+    .select("*, users(name), candidates(marketing_name, legal_name)")
     .order("activity_date", { ascending: false });
 
   if (req.user.role === "admin") {
@@ -37,11 +37,15 @@ router.get("/", requireAuth, async (req, res) => {
   if (req.query.type) query = query.eq("activity_type", req.query.type);
   if (req.query.start) query = query.gte("activity_date", req.query.start);
   if (req.query.end) query = query.lte("activity_date", req.query.end);
+  if (req.query.candidate_id) query = query.eq("candidate_id", req.query.candidate_id);
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
-  res.json((data || []).map(({ users, ...row }) => ({ ...row, user_name: users?.name || null })));
+  res.json((data || []).map(({ users, candidates, ...row }) => ({
+    ...row, user_name: users?.name || null,
+    linked_candidate_name: candidates?.marketing_name || candidates?.legal_name || null,
+  })));
 });
 
 router.post("/", requireAuth, async (req, res) => {
@@ -59,9 +63,10 @@ router.post("/", requireAuth, async (req, res) => {
       employment_type: fields.employment_type || null,
       notes: fields.notes?.trim() || null,
       application_id: fields.application_id || null,
+      candidate_id: fields.candidate_id || null,
       activity_date: fields.activity_date || undefined,
     })
-    .select("*, users(name)")
+    .select("*, users(name), candidates(marketing_name, legal_name)")
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -72,8 +77,8 @@ router.post("/", requireAuth, async (req, res) => {
     metadata: { activity_type: data.activity_type, vendor_company: data.vendor_company },
   });
 
-  const { users, ...row } = data;
-  res.status(201).json({ ...row, user_name: users?.name || null });
+  const { users, candidates, ...row } = data;
+  res.status(201).json({ ...row, user_name: users?.name || null, linked_candidate_name: candidates?.marketing_name || candidates?.legal_name || null });
 });
 
 router.patch("/:id", requireAuth, async (req, res) => {
@@ -93,7 +98,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from("vendor_activities").update(updates).eq("id", req.params.id)
-    .select("*, users(name)").single();
+    .select("*, users(name), candidates(marketing_name, legal_name)").single();
   if (error) return res.status(500).json({ error: error.message });
 
   await supabase.from("audit_logs").insert({
@@ -101,8 +106,8 @@ router.patch("/:id", requireAuth, async (req, res) => {
     action: "UPDATE_VENDOR_ACTIVITY", target_type: "vendor_activity", target_id: req.params.id, metadata: updates,
   });
 
-  const { users, ...row } = data;
-  res.json({ ...row, user_name: users?.name || null });
+  const { users, candidates, ...row } = data;
+  res.json({ ...row, user_name: users?.name || null, linked_candidate_name: candidates?.marketing_name || candidates?.legal_name || null });
 });
 
 router.delete("/:id", requireAuth, async (req, res) => {

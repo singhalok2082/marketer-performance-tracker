@@ -14,7 +14,7 @@ const RICH_TYPES = ["tech_screening", "interview", "offer"];
 const emptyForm = {
   vendor_name: "", vendor_company: "", client_name: "", candidate_name: "",
   employment_type: "", job_title: "", jd_text: "", rate_usd: "",
-  duration_minutes: "", activity_date: "", notes: "",
+  duration_minutes: "", activity_date: "", notes: "", candidate_id: "",
 };
 
 export default function VendorActivities({ user }) {
@@ -23,6 +23,7 @@ export default function VendorActivities({ user }) {
   const [rows, setRows] = useState([]);
   const [managers, setManagers] = useState([]);
   const [managerFilter, setManagerFilter] = useState("all");
+  const [benchCandidates, setBenchCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -45,6 +46,7 @@ export default function VendorActivities({ user }) {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     if (isAdmin) api.get("/users/public").then(r => setManagers(r.data)).catch(() => {});
+    api.get("/candidates", { params: { approval_status: "approved" } }).then(r => setBenchCandidates(r.data)).catch(() => {});
   }, [isAdmin]);
 
   const startAdd = () => { setForm(emptyForm); setEditingId(null); setShowForm(true); };
@@ -56,6 +58,7 @@ export default function VendorActivities({ user }) {
       jd_text: r.jd_text || "", rate_usd: r.rate_usd != null ? String(r.rate_usd) : "",
       duration_minutes: r.duration_minutes != null ? String(r.duration_minutes) : "",
       activity_date: r.activity_date || "", notes: r.notes || "",
+      candidate_id: r.candidate_id || "",
     });
     setEditingId(r.id);
     setShowForm(true);
@@ -150,6 +153,13 @@ export default function VendorActivities({ user }) {
                 <input value={form.candidate_name} onChange={e => setForm(f => ({ ...f, candidate_name: e.target.value }))} className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
               </div>
               <div>
+                <label className="block text-xs font-medium mb-1">Bench candidate (optional)</label>
+                <select value={form.candidate_id} onChange={e => setForm(f => ({ ...f, candidate_id: e.target.value }))} className="w-full h-9 rounded-lg border border-border px-3 text-sm">
+                  <option value="">Not linked</option>
+                  {benchCandidates.map(c => <option key={c.id} value={c.id}>{c.marketing_name || c.legal_name || "Unnamed candidate"}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs font-medium mb-1">C2C or W2</label>
                 <select value={form.employment_type} onChange={e => setForm(f => ({ ...f, employment_type: e.target.value }))} className="w-full h-9 rounded-lg border border-border px-3 text-sm">
                   <option value="">Select…</option>
@@ -236,7 +246,11 @@ export default function VendorActivities({ user }) {
                       {r.activity_date}{r.imported_placeholder && <span className="ml-1.5 text-xs text-amber-600">(imported)</span>}
                     </td>
                     <td className="px-4 py-2.5 font-medium">{r.vendor_company || r.vendor_name || "—"}</td>
-                    {isRich && <td className="px-4 py-2.5 text-muted">{r.candidate_name || "—"}</td>}
+                    {isRich && (
+                      <td className="px-4 py-2.5 text-muted">
+                        {r.linked_candidate_name ? <span className="text-dark font-medium">{r.linked_candidate_name}</span> : (r.candidate_name || "—")}
+                      </td>
+                    )}
                     {isRich && <td className="px-4 py-2.5 text-muted">{r.job_title || "—"}</td>}
                     {isRich && <td className="px-4 py-2.5 text-right">{r.rate_usd != null ? `$${r.rate_usd}` : "—"}</td>}
                     {activeType === "vendor_call" && <td className="px-4 py-2.5 text-right">{r.duration_minutes != null ? `${r.duration_minutes} min` : "—"}</td>}
