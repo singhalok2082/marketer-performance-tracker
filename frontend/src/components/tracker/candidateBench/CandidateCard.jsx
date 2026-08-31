@@ -9,7 +9,7 @@ export default function CandidateCard({ candidate, onOpen }) {
   return (
     <button onClick={() => onOpen(c.id)} className="card p-4 text-left hover:shadow-md hover:-translate-y-0.5 transition-all">
       <div className="flex items-start justify-between gap-2">
-        <div className="font-semibold text-sm text-dark truncate">{c.marketing_name}</div>
+        <div className="font-semibold text-sm text-dark truncate">{c.marketing_name || c.legal_name || "Unnamed candidate"}</div>
         {c.is_own_pending && (
           <span className="badge bg-amber-100 text-amber-700 shrink-0">Pending approval</span>
         )}

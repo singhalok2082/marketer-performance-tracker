@@ -17,12 +17,10 @@ function pickCandidateFields(body) {
   return out;
 }
 
-// `partial` = true for PATCH, where a field's absence just means "leave as is"
-// rather than "clear it" — required-ness is only checked when the field is present.
-function validateCandidateFields(fields, { partial } = {}) {
-  if ((!partial || fields.marketing_name !== undefined) && !String(fields.marketing_name || "").trim()) {
-    return "Marketing name is required";
-  }
+// Nothing about a candidate is required — recruiting sends partial info and
+// admin fills gaps later. The only thing still validated is SSN's shape,
+// and only when a value is actually given.
+function validateCandidateFields(fields) {
   if (fields.ssn_last4 != null && !/^\d{4}$/.test(fields.ssn_last4)) {
     return "SSN must be exactly the last 4 digits";
   }
@@ -40,7 +38,16 @@ function mapEducationRow(e) {
 }
 
 function mapDetailRow(d) {
-  return { label: d.label.trim(), value: d.value?.trim() || null };
+  return { label: d.label?.trim() || null, value: d.value?.trim() || null };
+}
+
+function mapSystemCredentialRow(s) {
+  return {
+    system_name: s.system_name?.trim() || null,
+    login_id: s.login_id?.trim() || null,
+    password: s.password?.trim() || null,
+    notes: s.notes?.trim() || null,
+  };
 }
 
 async function replaceChildRows(table, candidateId, rows, mapRow) {
@@ -147,7 +154,7 @@ router.get("/approval-queue", requireAuth, requirePermission("bench"), async (re
 router.get("/:id", requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from("candidates")
-    .select("*, candidate_education(*), candidate_details(*), candidate_offers(*), submitter:users!candidates_submitted_by_fkey(name)")
+    .select("*, candidate_education(*), candidate_details(*), candidate_offers(*), candidate_system_credentials(*), submitter:users!candidates_submitted_by_fkey(name)")
     .eq("id", req.params.id)
     .single();
   if (error || !data) return res.status(404).json({ error: "Not found" });
@@ -170,11 +177,10 @@ router.post("/", requireAuth, async (req, res) => {
   const fields = pickCandidateFields(req.body);
   const fieldErr = validateCandidateFields(fields);
   if (fieldErr) return res.status(400).json({ error: fieldErr });
-  if (!fields.is_w2 && !fields.is_c2c) return res.status(400).json({ error: "Select at least one segment (W2 or C2C)" });
 
   const insertRow = {
     ...fields,
-    marketing_name: fields.marketing_name.trim(),
+    marketing_name: fields.marketing_name?.trim() || null,
     legal_name: fields.legal_name?.trim() || null,
     submitted_by: req.user.userId,
   };
@@ -189,7 +195,9 @@ router.post("/", requireAuth, async (req, res) => {
 
   try {
     await replaceChildRows("candidate_education", data.id, req.body.education, mapEducationRow);
-    await replaceChildRows("candidate_details", data.id, (req.body.details || []).filter(d => d.label?.trim()), mapDetailRow);
+    await replaceChildRows("candidate_details", data.id, (req.body.details || []).filter(d => d.label?.trim() || d.value?.trim()), mapDetailRow);
+    await replaceChildRows("candidate_system_credentials", data.id,
+      (req.body.system_credentials || []).filter(s => s.system_name?.trim() || s.login_id?.trim() || s.password?.trim() || s.notes?.trim()), mapSystemCredentialRow);
   } catch (childErr) {
     await supabase.from("candidates").delete().eq("id", data.id);
     return res.status(500).json({ error: childErr.message });
@@ -205,15 +213,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if (!canModifyDirectly(req, existing)) return res.status(403).json({ error: "Not allowed" });
 
   const fields = pickCandidateFields(req.body);
-  const fieldErr = validateCandidateFields(fields, { partial: true });
+  const fieldErr = validateCandidateFields(fields);
   if (fieldErr) return res.status(400).json({ error: fieldErr });
 
-  const mergedW2 = fields.is_w2 !== undefined ? fields.is_w2 : existing.is_w2;
-  const mergedC2C = fields.is_c2c !== undefined ? fields.is_c2c : existing.is_c2c;
-  if (!mergedW2 && !mergedC2C) return res.status(400).json({ error: "Select at least one segment (W2 or C2C)" });
-
   const updates = { ...fields, updated_at: new Date().toISOString() };
-  if (updates.marketing_name !== undefined) updates.marketing_name = updates.marketing_name.trim();
+  if (updates.marketing_name !== undefined) updates.marketing_name = updates.marketing_name?.trim() || null;
   if (updates.legal_name !== undefined) updates.legal_name = updates.legal_name?.trim() || null;
 
   const { data, error } = await supabase.from("candidates").update(updates).eq("id", req.params.id).select().single();
@@ -221,7 +225,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   if (req.body.education !== undefined) await replaceChildRows("candidate_education", data.id, req.body.education, mapEducationRow);
   if (req.body.details !== undefined) {
-    await replaceChildRows("candidate_details", data.id, (req.body.details || []).filter(d => d.label?.trim()), mapDetailRow);
+    await replaceChildRows("candidate_details", data.id, (req.body.details || []).filter(d => d.label?.trim() || d.value?.trim()), mapDetailRow);
+  }
+  if (req.body.system_credentials !== undefined) {
+    await replaceChildRows("candidate_system_credentials", data.id,
+      (req.body.system_credentials || []).filter(s => s.system_name?.trim() || s.login_id?.trim() || s.password?.trim() || s.notes?.trim()), mapSystemCredentialRow);
   }
 
   await logAudit(req, "UPDATE_CANDIDATE", data.id, updates);
@@ -328,7 +336,7 @@ router.post("/:id/edit-requests", requireAuth, async (req, res) => {
   const changes = req.body.changes;
   if (!changes || typeof changes !== "object") return res.status(400).json({ error: "changes is required" });
   if (changes.candidate) {
-    const fieldErr = validateCandidateFields(pickCandidateFields(changes.candidate), { partial: true });
+    const fieldErr = validateCandidateFields(pickCandidateFields(changes.candidate));
     if (fieldErr) return res.status(400).json({ error: fieldErr });
   }
 
@@ -364,7 +372,7 @@ router.post("/:id/edit-requests/:reqId/approve", requireAuth, requirePermission(
 
   const { changes } = editReq;
   const candidateChanges = pickCandidateFields(changes.candidate || {});
-  if (candidateChanges.marketing_name !== undefined) candidateChanges.marketing_name = candidateChanges.marketing_name.trim();
+  if (candidateChanges.marketing_name !== undefined) candidateChanges.marketing_name = candidateChanges.marketing_name?.trim() || null;
   if (candidateChanges.legal_name !== undefined) candidateChanges.legal_name = candidateChanges.legal_name?.trim() || null;
 
   if (Object.keys(candidateChanges).length) {
@@ -374,7 +382,7 @@ router.post("/:id/edit-requests/:reqId/approve", requireAuth, requirePermission(
   }
   if (changes.education !== undefined) await replaceChildRows("candidate_education", req.params.id, changes.education, mapEducationRow);
   if (changes.details !== undefined) {
-    await replaceChildRows("candidate_details", req.params.id, (changes.details || []).filter(d => d.label?.trim()), mapDetailRow);
+    await replaceChildRows("candidate_details", req.params.id, (changes.details || []).filter(d => d.label?.trim() || d.value?.trim()), mapDetailRow);
   }
 
   await supabase.from("candidate_edit_requests").update({

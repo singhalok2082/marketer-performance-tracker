@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import api from "../../../api/client";
 import { emptyCandidateForm } from "./helpers";
+import { parsePastedCandidateText } from "./parsePastedText";
 
 const MODE_TITLES = {
   create: "Add Candidate",
@@ -26,8 +27,30 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
   const [form, setForm] = useState(initial || emptyCandidateForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [showPaste, setShowPaste] = useState(mode === "create");
+  const [pasteText, setPasteText] = useState("");
+  const [parseSummary, setParseSummary] = useState(null);
 
   const set = (patch) => setForm(f => ({ ...f, ...patch }));
+
+  const parseAndFill = () => {
+    if (!pasteText.trim()) return;
+    const { candidate, education, details, systemCredentials } = parsePastedCandidateText(pasteText);
+    setForm(f => ({
+      ...f,
+      ...candidate,
+      education: [...f.education, ...education],
+      details: [...f.details, ...details],
+      system_credentials: [...f.system_credentials, ...systemCredentials],
+    }));
+    const mappedCount = Object.keys(candidate).length;
+    const parts = [`${mappedCount} field${mappedCount === 1 ? "" : "s"} mapped`];
+    if (education.length) parts.push(`${education.length} education entr${education.length === 1 ? "y" : "ies"}`);
+    if (systemCredentials.length) parts.push(`${systemCredentials.length} system${systemCredentials.length === 1 ? "" : "s"}`);
+    if (details.length) parts.push(`${details.length} line${details.length === 1 ? "" : "s"} couldn't be auto-mapped — added below for you to check`);
+    setParseSummary(parts.join(", ") + ". Review everything before saving.");
+    setPasteText("");
+  };
 
   const setEduRow = (i, patch) => set({ education: form.education.map((r, idx) => idx === i ? { ...r, ...patch } : r) });
   const addEduRow = () => set({ education: [...form.education, { degree_name: "", institution: "", location: "", start_year: "", end_year: "" }] });
@@ -37,17 +60,20 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
   const addDetailRow = () => set({ details: [...form.details, { label: "", value: "" }] });
   const removeDetailRow = (i) => set({ details: form.details.filter((_, idx) => idx !== i) });
 
+  const setSystemRow = (i, patch) => set({ system_credentials: form.system_credentials.map((r, idx) => idx === i ? { ...r, ...patch } : r) });
+  const addSystemRow = () => set({ system_credentials: [...form.system_credentials, { system_name: "", login_id: "", password: "", notes: "" }] });
+  const removeSystemRow = (i) => set({ system_credentials: form.system_credentials.filter((_, idx) => idx !== i) });
+
   const submit = async (e) => {
     e.preventDefault();
     setError(null);
 
-    if (!form.marketing_name.trim()) return setError("Marketing name is required");
-    if (!form.is_w2 && !form.is_c2c) return setError("Select at least one segment (W2 or C2C)");
     if (form.ssn_last4 && !/^\d{4}$/.test(form.ssn_last4)) return setError("SSN must be exactly the last 4 digits");
 
     const education = form.education.filter(r => r.degree_name || r.institution || r.location || r.start_year || r.end_year)
       .map(r => ({ ...r, start_year: r.start_year ? Number(r.start_year) : null, end_year: r.end_year ? Number(r.end_year) : null }));
-    const details = form.details.filter(r => r.label.trim());
+    const details = form.details.filter(r => r.label.trim() || r.value.trim());
+    const systemCredentials = form.system_credentials.filter(r => r.system_name.trim() || r.login_id.trim() || r.password.trim() || r.notes.trim());
 
     const core = {
       marketing_name: form.marketing_name.trim(),
@@ -66,10 +92,11 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
     setSaving(true);
     try {
       if (mode === "create") {
-        await api.post("/candidates", { ...core, education, details });
+        await api.post("/candidates", { ...core, education, details, system_credentials: systemCredentials });
       } else if (mode === "edit") {
-        await api.patch(`/candidates/${candidateId}`, { ...core, education, details });
+        await api.patch(`/candidates/${candidateId}`, { ...core, education, details, system_credentials: systemCredentials });
       } else {
+        // System credentials are admin-only after approval — never proposed via an edit request.
         await api.post(`/candidates/${candidateId}/edit-requests`, { changes: { candidate: core, education, details } });
       }
       onSaved();
@@ -91,9 +118,29 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
         <form onSubmit={submit} className="overflow-y-auto px-5 py-4 space-y-5">
           {error && <div className="text-sm rounded-lg px-4 py-3 border bg-red-50 border-red-200 text-red-700">{error}</div>}
 
+          {mode !== "edit-request" && (
+            <div className="rounded-lg border border-dashed border-border p-3 bg-surface/60">
+              <button type="button" onClick={() => setShowPaste(s => !s)} className="text-xs font-semibold text-primary">
+                {showPaste ? "− Hide" : "+"} Paste details to auto-fill
+              </button>
+              {showPaste && (
+                <div className="mt-2 space-y-2">
+                  <textarea rows={6} className="input h-auto py-2 font-mono text-xs" placeholder={"Paste whatever the recruiting team sent — e.g.\nMarketing Name: ...\nDOB: ...\nSSN: ...\nEducation: ...\nSystem Name: ...\nUsername: ..."}
+                    value={pasteText} onChange={e => setPasteText(e.target.value)} />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={parseAndFill} disabled={!pasteText.trim()} className="h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-40">
+                      Parse &amp; fill form
+                    </button>
+                    {parseSummary && <div className="text-xs text-muted">{parseSummary}</div>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Marketing name *">
-              <input required className="input" value={form.marketing_name} onChange={e => set({ marketing_name: e.target.value })} placeholder="Name used when submitting to clients" />
+            <Field label="Marketing name">
+              <input className="input" value={form.marketing_name} onChange={e => set({ marketing_name: e.target.value })} placeholder="Name used when submitting to clients" />
             </Field>
             <Field label="Legal name">
               <input className="input" value={form.legal_name} onChange={e => set({ legal_name: e.target.value })} />
@@ -118,14 +165,14 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
               <input type="date" className="input" value={form.visa_end_date} onChange={e => set({ visa_end_date: e.target.value })} />
             </Field>
             <div className="sm:col-span-2">
-              <Field label="Current address (per LinkedIn)">
+              <Field label="Current location">
                 <input className="input" value={form.current_address_linkedin} onChange={e => set({ current_address_linkedin: e.target.value })} placeholder="City, State" />
               </Field>
             </div>
           </div>
 
           <div>
-            <div className="text-xs font-medium mb-1.5">Segment *</div>
+            <div className="text-xs font-medium mb-1.5">Segment</div>
             <div className="flex gap-4">
               <label className="flex items-center gap-1.5 text-sm">
                 <input type="checkbox" checked={form.is_w2} onChange={e => set({ is_w2: e.target.checked })} /> W2
@@ -172,6 +219,28 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
               {form.details.length === 0 && <div className="text-xs text-muted">No additional details added yet.</div>}
             </div>
           </div>
+
+          {mode !== "edit-request" && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-xs font-medium">System access</div>
+                <button type="button" onClick={addSystemRow} className="text-xs font-semibold text-primary">+ Add system</button>
+              </div>
+              <p className="text-xs text-muted -mt-0.5 mb-2">Login credentials for Jump, client interview systems, etc. Only admins can edit these once the candidate is approved.</p>
+              <div className="space-y-2">
+                {form.system_credentials.map((row, i) => (
+                  <div key={i} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                    <input className="input sm:col-span-3" placeholder="System name (e.g. Jump)" value={row.system_name} onChange={e => setSystemRow(i, { system_name: e.target.value })} />
+                    <input className="input sm:col-span-3" placeholder="Login ID" value={row.login_id} onChange={e => setSystemRow(i, { login_id: e.target.value })} />
+                    <input className="input sm:col-span-2" placeholder="Password" value={row.password} onChange={e => setSystemRow(i, { password: e.target.value })} />
+                    <input className="input sm:col-span-3" placeholder="Other details (optional)" value={row.notes} onChange={e => setSystemRow(i, { notes: e.target.value })} />
+                    <button type="button" onClick={() => removeSystemRow(i)} className="sm:col-span-1 text-xs text-red-600 font-semibold">Remove</button>
+                  </div>
+                ))}
+                {form.system_credentials.length === 0 && <div className="text-xs text-muted">No system access added yet.</div>}
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-1 pb-1">
             <button type="button" onClick={onClose} className="h-9 px-4 rounded-lg border border-border text-sm font-semibold text-medium hover:bg-surface">Cancel</button>

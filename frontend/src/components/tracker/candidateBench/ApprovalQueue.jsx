@@ -59,7 +59,7 @@ export default function ApprovalQueue({ onClose, onChanged, onOpenCandidate }) {
                     {data.pending_candidates.map(c => (
                       <div key={c.id} className="card p-3 flex items-center justify-between gap-3">
                         <button onClick={() => onOpenCandidate(c.id)} className="text-left min-w-0">
-                          <div className="text-sm font-medium truncate">{c.marketing_name}</div>
+                          <div className="text-sm font-medium truncate">{c.marketing_name || c.legal_name || "Unnamed candidate"}</div>
                           <div className="text-xs text-muted">Submitted by {c.submitted_by_name || "—"} · {fmtDate(c.created_at?.slice(0, 10))}</div>
                         </button>
                         <div className="flex gap-1.5 shrink-0">

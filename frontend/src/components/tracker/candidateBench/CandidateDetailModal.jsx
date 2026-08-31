@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../../../api/client";
-import { fmtDate } from "./helpers";
+import { fmtDate, buildMarketingText, buildSystemText, buildAllText } from "./helpers";
 import { hasPermission } from "../../../pages/admin/permissionSections";
 
 function Row({ label, value }) {
@@ -22,6 +22,7 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
   const [offerForm, setOfferForm] = useState({ employer_client: "", offer_date: "", notes: "" });
   const [savingOffer, setSavingOffer] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -56,11 +57,18 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
     } finally { setSavingOffer(false); }
   };
 
+  const copy = async (key, text) => {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(k => (k === key ? null : k)), 1500);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <div className="font-semibold text-sm">{candidate?.marketing_name || "Candidate"}</div>
+          <div className="font-semibold text-sm">{candidate?.marketing_name || candidate?.legal_name || "Candidate"}</div>
           <button onClick={onClose} className="text-muted hover:text-dark text-xl leading-none">×</button>
         </div>
 
@@ -93,7 +101,7 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
                 <Row label="Visa issue date" value={fmtDate(candidate.visa_start_date)} />
                 <Row label="Visa expiration date" value={fmtDate(candidate.visa_end_date)} />
                 <Row label="US entry date" value={fmtDate(candidate.us_entry_date)} />
-                <Row label="Current address (per LinkedIn)" value={candidate.current_address_linkedin} />
+                <Row label="Current location" value={candidate.current_address_linkedin} />
                 <Row label="Submitted by" value={candidate.submitted_by_name} />
               </div>
 
@@ -116,6 +124,21 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
                 {candidate.candidate_details?.length ? (
                   <ul className="text-sm space-y-1">
                     {candidate.candidate_details.map(d => <li key={d.id}><span className="font-medium">{d.label}:</span> {d.value || "—"}</li>)}
+                  </ul>
+                ) : <div className="text-sm text-muted">None on file.</div>}
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">System access</div>
+                {candidate.candidate_system_credentials?.length ? (
+                  <ul className="text-sm space-y-2">
+                    {candidate.candidate_system_credentials.map(s => (
+                      <li key={s.id}>
+                        <div className="font-medium">{s.system_name}</div>
+                        {s.login_id && <div className="text-muted">Login ID: <span className="text-dark">{s.login_id}</span></div>}
+                        {s.password && <div className="text-muted">Password: <span className="text-dark">{s.password}</span></div>}
+                      </li>
+                    ))}
                   </ul>
                 ) : <div className="text-sm text-muted">None on file.</div>}
               </div>
@@ -152,6 +175,24 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
                   </div>
                 </div>
               )}
+
+              <div className="border-t border-border pt-4">
+                <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Copy for Slack</div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => copy("marketing", buildMarketingText(candidate))}
+                    className="h-8 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface">
+                    {copiedKey === "marketing" ? "Copied ✓" : "Copy marketing details"}
+                  </button>
+                  <button onClick={() => copy("system", buildSystemText(candidate))} disabled={!candidate.candidate_system_credentials?.length}
+                    className="h-8 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface disabled:opacity-40">
+                    {copiedKey === "system" ? "Copied ✓" : "Copy system details"}
+                  </button>
+                  <button onClick={() => copy("all", buildAllText(candidate))}
+                    className="h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover">
+                    {copiedKey === "all" ? "Copied ✓" : "Copy all"}
+                  </button>
+                </div>
+              </div>
 
               <div className="flex justify-end gap-2 pt-1">
                 {canManage && (
