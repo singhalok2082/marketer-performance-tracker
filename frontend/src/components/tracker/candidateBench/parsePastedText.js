@@ -92,17 +92,19 @@ export function parsePastedCandidateText(text) {
     const { label, value } = parts;
     const n = normalize(label);
 
-    if (n.includes("jump") && n.includes("login")) { getOrCreateSystem("Jump").login_id = value; continue; }
+    // Check "password" before "login"/"username" — a label like "Jump Login
+    // ID Password" contains both words, and it's the password.
     if (n.includes("jump") && n.includes("pass")) { getOrCreateSystem("Jump").password = value; continue; }
+    if (n.includes("jump") && n.includes("login")) { getOrCreateSystem("Jump").login_id = value; continue; }
     if (n.includes("system name")) { currentSystem = getOrCreateSystem(value); continue; }
+    if (n.includes("pass")) {
+      if (!currentSystem) currentSystem = getOrCreateSystem("System");
+      currentSystem.password = value;
+      continue;
+    }
     if (n === "username" || n.includes("login id")) {
       if (!currentSystem) currentSystem = getOrCreateSystem("System");
       currentSystem.login_id = value;
-      continue;
-    }
-    if (n === "password") {
-      if (!currentSystem) currentSystem = getOrCreateSystem("System");
-      currentSystem.password = value;
       continue;
     }
 

@@ -164,12 +164,13 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
               <div>
                 <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">System access</div>
                 {candidate.candidate_system_credentials?.length ? (
-                  <ul className="text-sm space-y-2">
+                  <ul className="space-y-2">
                     {candidate.candidate_system_credentials.map(s => (
-                      <li key={s.id}>
-                        <div className="font-medium">{s.system_name}</div>
-                        {s.login_id && <div className="text-muted">Login ID: <span className="text-dark">{s.login_id}</span></div>}
-                        {s.password && <div className="text-muted">Password: <span className="text-dark">{s.password}</span></div>}
+                      <li key={s.id} className="rounded-lg border border-border p-2.5 space-y-0.5">
+                        {s.system_name && <div className="text-sm"><span className="text-muted">System Name:</span> <span className="font-medium">{s.system_name}</span></div>}
+                        {s.login_id && <div className="text-sm text-muted">Login ID: <span className="text-dark">{s.login_id}</span></div>}
+                        {s.password && <div className="text-sm text-muted">Password: <span className="text-dark">{s.password}</span></div>}
+                        {s.notes && <div className="text-sm text-muted">Notes: <span className="text-dark">{s.notes}</span></div>}
                       </li>
                     ))}
                   </ul>
