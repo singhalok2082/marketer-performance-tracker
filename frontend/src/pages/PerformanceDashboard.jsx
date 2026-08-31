@@ -12,6 +12,8 @@ import DailyNotes from "../components/tracker/DailyNotes";
 import Support from "../components/tracker/Support";
 import LiveFeed from "../components/tracker/LiveFeed";
 import DailyTasks from "../components/tracker/DailyTasks";
+import CandidateBench from "../components/tracker/candidateBench/CandidateBench";
+import { hasPermission } from "./admin/permissionSections";
 
 export const img = (name) => `${import.meta.env.BASE_URL}images/${name}.jpg`;
 
@@ -102,6 +104,7 @@ const TABS = [
   ["overview", "Overview"],
   ["applications", "Applications"],
   ["outreach", "Inbound Requirements"],
+  ["bench", "Candidate Bench"],
   ["activities", "Vendor Activities"],
   ["tasks", "Daily Tasks"],
   ["notes", "Daily Notes"],
@@ -132,6 +135,11 @@ const th = "text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-w
 /* ─────────────── COMPONENT ─────────────── */
 export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel }) {
   const isAdminUser = user?.role === "admin";
+  // Candidate Bench holds the most sensitive PII this app handles (SSN digits,
+  // DOB, visa data) — unlike every other tab, hide it from the nav entirely
+  // for a scoped admin who wasn't granted the "bench" permission, rather than
+  // just letting the API 403 after they click in.
+  const visibleTabs = TABS.filter(([key]) => key !== "bench" || !isAdminUser || hasPermission(user, "bench"));
 
   const [s, setRaw] = useState({
     tab: "overview",
@@ -506,7 +514,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         </div>
 
         <div className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5">
-          {TABS.map(([key, label]) => (
+          {visibleTabs.map(([key, label]) => (
             <React.Fragment key={key}>
               {key === "linkedin" && (
                 <div className="px-3.5 pt-4 pb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-zinc-500">Assets</div>
@@ -633,7 +641,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         {/* ══ BODY ══ */}
         <div className="px-8 py-6 pb-16 flex-1">
 
-          {["linkedin", "resumes", "emails", "phone-numbers", "applications", "outreach", "activities", "tasks", "notes", "support"].includes(s.tab) && (
+          {["linkedin", "resumes", "emails", "phone-numbers", "applications", "outreach", "bench", "activities", "tasks", "notes", "support"].includes(s.tab) && (
             <div className={`${cardCls} p-6`}>
               {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
               {s.tab === "resumes" && <Resumes user={user} />}
@@ -641,6 +649,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
               {s.tab === "phone-numbers" && <PhoneNumbers user={user} />}
               {s.tab === "applications" && <JobApplications user={user} />}
               {s.tab === "outreach" && <RecruiterOutreach user={user} />}
+              {s.tab === "bench" && <CandidateBench user={user} />}
               {s.tab === "activities" && <VendorActivities user={user} />}
               {s.tab === "tasks" && <DailyTasks user={user} />}
               {s.tab === "notes" && <DailyNotes user={user} />}

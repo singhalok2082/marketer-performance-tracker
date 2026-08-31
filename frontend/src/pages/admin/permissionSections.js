@@ -17,6 +17,7 @@ export const PERMISSION_SECTIONS = [
   { key: "linkedin",     label: "LinkedIn Profiles" },
   { key: "resumes",      label: "Resumes" },
   { key: "support",      label: "Support Tickets" },
+  { key: "bench",        label: "Candidate Bench" },
 ];
 
 // null/undefined permissions = unrestricted (full admin) — matches backend.
