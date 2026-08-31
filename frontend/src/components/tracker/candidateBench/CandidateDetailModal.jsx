@@ -59,6 +59,10 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
     setBusy(true);
     try { await api.patch(`/candidates/${candidateId}/marketing-status`, { marketing_status }); notify(); } finally { setBusy(false); }
   };
+  const toggleSegment = async (field) => {
+    setBusy(true);
+    try { await api.patch(`/candidates/${candidateId}`, { [field]: !candidate[field] }); notify(); } finally { setBusy(false); }
+  };
   const addOffer = async (e) => {
     e.preventDefault();
     if (!offerForm.employer_client.trim()) return;
@@ -92,12 +96,28 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
           {candidate && (
             <>
               <div className="flex flex-wrap gap-1.5">
-                {candidate.is_w2 && <span className="badge bg-blue-100 text-blue-700">W2</span>}
-                {candidate.is_c2c && <span className="badge bg-purple-100 text-purple-700">C2C</span>}
+                <span className={`badge ${candidate.is_w2 ? "bg-blue-100 text-blue-700" : "bg-zinc-100 text-zinc-400"}`}>W2</span>
+                <span className={`badge ${candidate.is_c2c ? "bg-purple-100 text-purple-700" : "bg-zinc-100 text-zinc-400"}`}>C2C</span>
                 {candidate.approval_status === "pending" && <span className="badge bg-amber-100 text-amber-700">Pending approval</span>}
                 {candidate.approval_status === "rejected" && <span className="badge bg-red-100 text-red-700">Rejected{candidate.rejection_reason ? `: ${candidate.rejection_reason}` : ""}</span>}
                 {candidate.marketing_status === "stopped" && <span className="badge bg-zinc-200 text-zinc-600">Not marketing</span>}
               </div>
+
+              {canManage && (
+                <div>
+                  <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Segment</div>
+                  <div className="flex gap-2">
+                    <button onClick={() => toggleSegment("is_w2")} disabled={busy}
+                      className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-40 ${candidate.is_w2 ? "bg-primary border-primary text-white" : "border-border text-medium hover:bg-surface"}`}>
+                      W2 {candidate.is_w2 ? "✓" : ""}
+                    </button>
+                    <button onClick={() => toggleSegment("is_c2c")} disabled={busy}
+                      className={`h-8 px-3 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-40 ${candidate.is_c2c ? "bg-primary border-primary text-white" : "border-border text-medium hover:bg-surface"}`}>
+                      C2C {candidate.is_c2c ? "✓" : ""}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {canManage && candidate.approval_status === "pending" && (
                 <div className="flex gap-2">
