@@ -101,3 +101,60 @@ export function buildAllText(c) {
   const system = buildSystemText(c);
   return system ? `${marketing}\n\nSystem Access\n${system}` : marketing;
 }
+
+const FIELD_LABELS = {
+  marketing_name: "Marketing Name", legal_name: "Legal Name", date_of_birth: "Date of Birth",
+  ssn_last4: "SSN (last 4)", visa_type: "Visa Type", visa_start_date: "Visa Issue Date",
+  visa_end_date: "Visa Expiration Date", us_entry_date: "US Entry Date",
+  current_address_linkedin: "Current Location", is_w2: "W2", is_c2c: "C2C",
+  jump_login_id: "Jump Login ID", jump_password: "Jump Password",
+};
+const DATE_FIELDS = new Set(["date_of_birth", "visa_start_date", "visa_end_date", "us_entry_date"]);
+const BOOL_FIELDS = new Set(["is_w2", "is_c2c"]);
+
+function formatFieldValue(field, value) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (DATE_FIELDS.has(field)) return fmtDate(value);
+  if (BOOL_FIELDS.has(field)) return value ? "Yes" : "No";
+  return String(value);
+}
+
+// Turns one audit_logs row (target_type="candidate") into a plain-English
+// history line: who did what, and for field edits, exactly what changed.
+export function describeHistoryEvent(row) {
+  const m = row.metadata || {};
+  const actor = row.actor_name || "Someone";
+  const changedLines = Object.entries(m.changed || {}).map(([field, { from, to }]) =>
+    `${FIELD_LABELS[field] || field}: ${formatFieldValue(field, from)} → ${formatFieldValue(field, to)}`
+  );
+  const touchedExtras = [
+    m.education_updated && "education",
+    m.details_updated && "additional details",
+    m.system_credentials_updated && "system access",
+  ].filter(Boolean);
+
+  switch (row.action) {
+    case "CREATE_CANDIDATE": return `${actor} created this candidate`;
+    case "SUBMIT_CANDIDATE": return `${actor} submitted this candidate for approval`;
+    case "APPROVE_CANDIDATE": return `${actor} approved this candidate`;
+    case "REJECT_CANDIDATE": return `${actor} rejected this candidate${m.reason ? `: ${m.reason}` : ""}`;
+    case "DELETE_CANDIDATE": return `${actor} deleted this candidate`;
+    case "UPDATE_CANDIDATE_MARKETING_STATUS": return `${actor} set marketing status to "${m.marketing_status}"`;
+    case "ADD_CANDIDATE_OFFER": return `${actor} logged an offer from ${m.employer_client || "a client"}`;
+    case "DELETE_CANDIDATE_OFFER": return `${actor} removed an offer entry`;
+    case "UPDATE_CANDIDATE": {
+      const parts = [...changedLines];
+      if (touchedExtras.length) parts.push(`updated ${touchedExtras.join(", ")}`);
+      return parts.length ? `${actor} updated — ${parts.join("; ")}` : `${actor} updated candidate details`;
+    }
+    case "SUBMIT_CANDIDATE_EDIT_REQUEST": {
+      const proposed = Object.entries(m.proposed || {}).map(([field, val]) => `${FIELD_LABELS[field] || field}: ${formatFieldValue(field, val)}`);
+      const extras = [m.education_proposed && "education", m.details_proposed && "additional details"].filter(Boolean);
+      const parts = [...proposed, ...extras.map(e => `updated ${e}`)];
+      return parts.length ? `${actor} requested an edit — ${parts.join("; ")}` : `${actor} requested an edit`;
+    }
+    case "APPROVE_CANDIDATE_EDIT_REQUEST": return `${actor} approved an edit request`;
+    case "REJECT_CANDIDATE_EDIT_REQUEST": return `${actor} rejected an edit request${m.reason ? `: ${m.reason}` : ""}`;
+    default: return `${actor} — ${row.action}`;
+  }
+}

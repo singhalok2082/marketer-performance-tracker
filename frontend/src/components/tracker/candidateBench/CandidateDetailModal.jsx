@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../../../api/client";
-import { fmtDate, buildMarketingText, buildSystemText, buildAllText } from "./helpers";
+import { fmtDate, buildMarketingText, buildSystemText, buildAllText, describeHistoryEvent } from "./helpers";
 import { hasPermission } from "../../../pages/admin/permissionSections";
 
 function Row({ label, value }) {
@@ -33,6 +33,7 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
   const [busy, setBusy] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
   const [activity, setActivity] = useState(null);
+  const [history, setHistory] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -42,12 +43,17 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
       .finally(() => setLoading(false));
   }, [candidateId]);
 
+  const loadHistory = useCallback(() => {
+    api.get(`/candidates/${candidateId}/history`).then(r => setHistory(r.data)).catch(() => setHistory(null));
+  }, [candidateId]);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     api.get(`/candidates/${candidateId}/activity`).then(r => setActivity(r.data)).catch(() => setActivity(null));
   }, [candidateId]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  const notify = () => { load(); onChanged(); };
+  const notify = () => { load(); loadHistory(); onChanged(); };
 
   const approve = async () => { setBusy(true); try { await api.post(`/candidates/${candidateId}/approve`); notify(); } finally { setBusy(false); } };
   const reject = async () => {
@@ -71,6 +77,7 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
       await api.post(`/candidates/${candidateId}/offers`, offerForm);
       setOfferForm({ employer_client: "", offer_date: "", notes: "" });
       load();
+      loadHistory();
     } finally { setSavingOffer(false); }
   };
 
@@ -320,6 +327,24 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
                 )}
                 {!canManage && candidate.is_own_pending && (
                   <button onClick={() => onEdit(candidate, "edit")} className="h-9 px-4 rounded-lg border border-border text-sm font-semibold hover:bg-surface">Edit</button>
+                )}
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">History</div>
+                {!history ? (
+                  <div className="text-sm text-muted">Loading…</div>
+                ) : history.length === 0 ? (
+                  <div className="text-sm text-muted">No activity recorded yet.</div>
+                ) : (
+                  <ul className="text-sm space-y-1.5">
+                    {history.map(row => (
+                      <li key={row.id} className="text-muted">
+                        <span className="text-dark">{describeHistoryEvent(row)}</span>
+                        <span className="ml-1.5">— {fmtDate(row.created_at?.slice(0, 10))}</span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </>

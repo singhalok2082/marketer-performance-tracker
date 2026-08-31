@@ -90,6 +90,19 @@ async function logAudit(req, action, targetId, metadata) {
   });
 }
 
+// Per-field before/after, for a candidate history that shows not just that
+// something changed but exactly what (e.g. "Current Location: Dallas -> New York").
+function diffFields(before, updates) {
+  const changed = {};
+  for (const [k, v] of Object.entries(updates)) {
+    if (k === "updated_at") continue;
+    const from = before[k] ?? null;
+    const to = v ?? null;
+    if (from !== to) changed[k] = { from, to };
+  }
+  return changed;
+}
+
 function shapeRow(row) {
   const { submitter, ...rest } = row;
   return {
@@ -238,16 +251,22 @@ router.patch("/:id", requireAuth, async (req, res) => {
   const { data, error } = await supabase.from("candidates").update(updates).eq("id", req.params.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
 
-  if (req.body.education !== undefined) await replaceChildRows("candidate_education", data.id, req.body.education, mapEducationRow);
+  const auditMeta = { changed: diffFields(existing, updates) };
+  if (req.body.education !== undefined) {
+    await replaceChildRows("candidate_education", data.id, req.body.education, mapEducationRow);
+    auditMeta.education_updated = true;
+  }
   if (req.body.details !== undefined) {
     await replaceChildRows("candidate_details", data.id, (req.body.details || []).filter(d => d.label?.trim() || d.value?.trim()), mapDetailRow);
+    auditMeta.details_updated = true;
   }
   if (req.body.system_credentials !== undefined) {
     await replaceChildRows("candidate_system_credentials", data.id,
       (req.body.system_credentials || []).filter(s => s.system_name?.trim() || s.username?.trim() || s.password?.trim() || s.notes?.trim()), mapSystemCredentialRow);
+    auditMeta.system_credentials_updated = true;
   }
 
-  await logAudit(req, "UPDATE_CANDIDATE", data.id, updates);
+  await logAudit(req, "UPDATE_CANDIDATE", data.id, auditMeta);
   res.json(data);
 });
 
@@ -416,6 +435,27 @@ router.get("/:id/activity", requireAuth, async (req, res) => {
   });
 });
 
+// Full change history for this candidate — every create/approve/reject/edit/
+// offer/marketing-status event, who did it, and (for field edits) exactly
+// what changed. Visible to anyone who can already view the candidate; this
+// isn't manager-privacy-scoped like applications/vendor activity because
+// it's about the shared candidate record itself, not one manager's own work.
+router.get("/:id/history", requireAuth, async (req, res) => {
+  const { data: candidate, error: findErr } = await supabase.from("candidates").select("id, approval_status, submitted_by").eq("id", req.params.id).single();
+  if (findErr || !candidate) return res.status(404).json({ error: "Not found" });
+  if (!canView(req, candidate)) return res.status(403).json({ error: "Not allowed" });
+
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .select("*")
+    .eq("target_type", "candidate")
+    .eq("target_id", req.params.id)
+    .order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json(data || []);
+});
+
 /* ─────────────── edit requests ─────────────── */
 
 router.post("/:id/edit-requests", requireAuth, async (req, res) => {
@@ -425,8 +465,10 @@ router.post("/:id/edit-requests", requireAuth, async (req, res) => {
 
   const changes = req.body.changes;
   if (!changes || typeof changes !== "object") return res.status(400).json({ error: "changes is required" });
+  let proposedFields = {};
   if (changes.candidate) {
-    const fieldErr = validateCandidateFields(pickCandidateFields(changes.candidate));
+    proposedFields = pickCandidateFields(changes.candidate);
+    const fieldErr = validateCandidateFields(proposedFields);
     if (fieldErr) return res.status(400).json({ error: fieldErr });
   }
 
@@ -435,7 +477,12 @@ router.post("/:id/edit-requests", requireAuth, async (req, res) => {
   }).select().single();
   if (error) return res.status(500).json({ error: error.message });
 
-  await logAudit(req, "SUBMIT_CANDIDATE_EDIT_REQUEST", req.params.id, { edit_request_id: data.id });
+  await logAudit(req, "SUBMIT_CANDIDATE_EDIT_REQUEST", req.params.id, {
+    edit_request_id: data.id,
+    proposed: proposedFields,
+    education_proposed: changes.education !== undefined,
+    details_proposed: changes.details !== undefined,
+  });
   res.status(201).json(data);
 });
 
@@ -465,22 +512,29 @@ router.post("/:id/edit-requests/:reqId/approve", requireAuth, requirePermission(
   if (candidateChanges.marketing_name !== undefined) candidateChanges.marketing_name = candidateChanges.marketing_name?.trim() || null;
   if (candidateChanges.legal_name !== undefined) candidateChanges.legal_name = candidateChanges.legal_name?.trim() || null;
 
+  const { data: beforeCandidate } = await supabase.from("candidates").select("*").eq("id", req.params.id).single();
+
   if (Object.keys(candidateChanges).length) {
     candidateChanges.updated_at = new Date().toISOString();
     const { error: updateErr } = await supabase.from("candidates").update(candidateChanges).eq("id", req.params.id);
     if (updateErr) return res.status(500).json({ error: updateErr.message });
   }
-  if (changes.education !== undefined) await replaceChildRows("candidate_education", req.params.id, changes.education, mapEducationRow);
+  const auditMeta = { changed: diffFields(beforeCandidate || {}, candidateChanges) };
+  if (changes.education !== undefined) {
+    await replaceChildRows("candidate_education", req.params.id, changes.education, mapEducationRow);
+    auditMeta.education_updated = true;
+  }
   if (changes.details !== undefined) {
     await replaceChildRows("candidate_details", req.params.id, (changes.details || []).filter(d => d.label?.trim() || d.value?.trim()), mapDetailRow);
+    auditMeta.details_updated = true;
   }
 
   await supabase.from("candidate_edit_requests").update({
     status: "approved", reviewed_by: req.user.userId, reviewed_at: new Date().toISOString(),
   }).eq("id", req.params.reqId);
 
-  await logAudit(req, "APPROVE_CANDIDATE_EDIT_REQUEST", req.params.id, { edit_request_id: req.params.reqId });
-  await logAudit(req, "UPDATE_CANDIDATE", req.params.id, candidateChanges);
+  await logAudit(req, "APPROVE_CANDIDATE_EDIT_REQUEST", req.params.id, { edit_request_id: req.params.reqId, requested_by: editReq.requested_by });
+  await logAudit(req, "UPDATE_CANDIDATE", req.params.id, auditMeta);
 
   const { data: updated } = await supabase
     .from("candidates")
