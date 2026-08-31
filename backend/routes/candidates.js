@@ -326,6 +326,50 @@ router.delete("/:id/offers/:offerId", requireAuth, requirePermission("bench"), a
   res.json({ ok: true });
 });
 
+// Linked activity from the (separate) Job Applications tracker — interviews/
+// offers a candidate has actually had, via job_applications.candidate_id.
+// Mirrors /api/applications' own privacy boundary: an admin with the
+// "applications" permission sees every manager's linked rows, everyone else
+// (including a scoped admin without it) only sees their own.
+router.get("/:id/activity", requireAuth, async (req, res) => {
+  const { data: candidate, error: findErr } = await supabase.from("candidates").select("id, approval_status, submitted_by").eq("id", req.params.id).single();
+  if (findErr || !candidate) return res.status(404).json({ error: "Not found" });
+  if (!canView(req, candidate)) return res.status(403).json({ error: "Not allowed" });
+
+  const seeAll = req.user.role === "admin" && hasPermission(req.user, "applications");
+
+  let query = supabase
+    .from("job_applications")
+    .select("id, job_title, status, applied_date, user_id, users(name), portals(name)")
+    .eq("candidate_id", req.params.id)
+    .order("applied_date", { ascending: false });
+  if (!seeAll) query = query.eq("user_id", req.user.userId);
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+
+  const applications = (data || []).map(({ users, portals, ...row }) => ({
+    ...row, user_name: users?.name || null, portal_name: portals?.name || null,
+  }));
+
+  const byStatus = {};
+  const byManagerMap = new Map();
+  for (const a of applications) {
+    byStatus[a.status] = (byStatus[a.status] || 0) + 1;
+    if (!byManagerMap.has(a.user_id)) byManagerMap.set(a.user_id, { user_name: a.user_name, total: 0, interviews: 0, offers: 0 });
+    const m = byManagerMap.get(a.user_id);
+    m.total += 1;
+    if (a.status === "Interview Scheduled") m.interviews += 1;
+    if (a.status === "Offer") m.offers += 1;
+  }
+
+  res.json({
+    applications,
+    summary: { total: applications.length, byStatus, byManager: Array.from(byManagerMap.values()).sort((a, b) => b.total - a.total) },
+    scope: seeAll ? "all" : "own",
+  });
+});
+
 /* ─────────────── edit requests ─────────────── */
 
 router.post("/:id/edit-requests", requireAuth, async (req, res) => {

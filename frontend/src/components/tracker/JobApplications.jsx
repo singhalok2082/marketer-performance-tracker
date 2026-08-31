@@ -3,7 +3,7 @@ import api from "../../api/client";
 import { driveEmbedUrl } from "../../utils/drivePreview";
 
 const STATUS_LIST = ["Applied", "Submitted to Client", "Interview Scheduled", "Offer", "Rejected", "No Response"];
-const emptyForm = { portal_id: "", job_url: "", job_title: "", candidate_info: "", job_description: "", resume_id: "", applied_date: "", status: "Applied" };
+const emptyForm = { portal_id: "", job_url: "", job_title: "", candidate_info: "", job_description: "", resume_id: "", applied_date: "", status: "Applied", candidate_id: "" };
 const emptyNewResume = { title: "", tech_stack: "", file: null, drive_link: "" };
 
 function statusColors(status) {
@@ -20,6 +20,7 @@ export default function JobApplications({ user }) {
   const [apps, setApps] = useState([]);
   const [portals, setPortals] = useState([]);
   const [resumes, setResumes] = useState([]);
+  const [benchCandidates, setBenchCandidates] = useState([]);
   const [managers, setManagers] = useState([]);
   const [managerFilter, setManagerFilter] = useState("all");
   const [portalFilter, setPortalFilter] = useState("all");
@@ -55,6 +56,9 @@ export default function JobApplications({ user }) {
   useEffect(() => {
     api.get("/portals").then(r => setPortals(r.data.filter(p => p.is_active))).catch(() => {});
     loadResumes();
+    // approval_status=approved (without marketing_status) bypasses the "active only" default
+    // so a candidate already marked "not marketing" is still pickable for a past application.
+    api.get("/candidates", { params: { approval_status: "approved" } }).then(r => setBenchCandidates(r.data)).catch(() => {});
     if (isAdmin) api.get("/users/public").then(r => setManagers(r.data)).catch(() => {});
   }, [isAdmin, loadResumes]);
 
@@ -64,6 +68,7 @@ export default function JobApplications({ user }) {
       portal_id: a.portal_id || "", job_url: a.job_url || "", job_title: a.job_title,
       candidate_info: a.candidate_info || "", job_description: a.job_description || "",
       resume_id: a.resume_id || "", applied_date: a.applied_date, status: a.status,
+      candidate_id: a.candidate_id || "",
     });
     setEditingId(a.id);
     setResumeMode("existing");
@@ -193,6 +198,13 @@ export default function JobApplications({ user }) {
             <label className="block text-xs font-medium mb-1">Candidate info</label>
             <input value={form.candidate_info} onChange={e => setForm(f => ({ ...f, candidate_info: e.target.value }))} placeholder="Name / notes" className="w-full h-9 rounded-lg border border-border px-3 text-sm" />
           </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Bench candidate (optional)</label>
+            <select value={form.candidate_id} onChange={e => setForm(f => ({ ...f, candidate_id: e.target.value }))} className="w-full h-9 rounded-lg border border-border px-3 text-sm">
+              <option value="">Not linked</option>
+              {benchCandidates.map(c => <option key={c.id} value={c.id}>{c.marketing_name || c.legal_name || "Unnamed candidate"}</option>)}
+            </select>
+          </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium mb-1">Resume used</label>
             <div className="flex gap-2 mb-2">
@@ -293,7 +305,9 @@ export default function JobApplications({ user }) {
                     <td className="px-4 py-2.5 font-medium">
                       {a.job_url ? <a href={a.job_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">{a.job_title}</a> : a.job_title}
                     </td>
-                    <td className="px-4 py-2.5 text-muted truncate max-w-[160px]">{a.candidate_info || "—"}</td>
+                    <td className="px-4 py-2.5 text-muted truncate max-w-[160px]">
+                      {a.candidate_name ? <span className="text-dark font-medium">{a.candidate_name}</span> : (a.candidate_info || "—")}
+                    </td>
                     <td className="px-4 py-2.5">{a.portal_name || "—"}</td>
                     <td className="px-4 py-2.5 text-muted">
                       {a.resume_id ? (

@@ -10,7 +10,7 @@ function canModify(req, row) {
 router.get("/", requireAuth, async (req, res) => {
   let query = supabase
     .from("job_applications")
-    .select("*, users(name), portals(name), resumes(title)")
+    .select("*, users(name), portals(name), resumes(title), candidates(marketing_name, legal_name)")
     .order("applied_date", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -24,20 +24,22 @@ router.get("/", requireAuth, async (req, res) => {
   if (req.query.end) query = query.lte("applied_date", req.query.end);
   if (req.query.portal_id) query = query.eq("portal_id", req.query.portal_id);
   if (req.query.status) query = query.eq("status", req.query.status);
+  if (req.query.candidate_id) query = query.eq("candidate_id", req.query.candidate_id);
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
-  res.json((data || []).map(({ users, portals, resumes, ...row }) => ({
+  res.json((data || []).map(({ users, portals, resumes, candidates, ...row }) => ({
     ...row,
     user_name: users?.name || null,
     portal_name: portals?.name || null,
     resume_title: resumes?.title || null,
+    candidate_name: candidates?.marketing_name || candidates?.legal_name || null,
   })));
 });
 
 router.post("/", requireAuth, async (req, res) => {
-  const { portal_id, job_url, job_title, candidate_info, job_description, resume_id, applied_date, status } = req.body;
+  const { portal_id, job_url, job_title, candidate_info, job_description, resume_id, applied_date, status, candidate_id } = req.body;
   if (!job_title?.trim()) return res.status(400).json({ error: "Job title is required" });
 
   const { data, error } = await supabase
@@ -52,8 +54,9 @@ router.post("/", requireAuth, async (req, res) => {
       resume_id: resume_id || null,
       applied_date: applied_date || undefined,
       status: status || undefined,
+      candidate_id: candidate_id || null,
     })
-    .select("*, users(name), portals(name), resumes(title)")
+    .select("*, users(name), portals(name), resumes(title), candidates(marketing_name, legal_name)")
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -64,8 +67,11 @@ router.post("/", requireAuth, async (req, res) => {
     metadata: { job_title: data.job_title },
   });
 
-  const { users, portals, resumes, ...row } = data;
-  res.status(201).json({ ...row, user_name: users?.name || null, portal_name: portals?.name || null, resume_title: resumes?.title || null });
+  const { users, portals, resumes, candidates, ...row } = data;
+  res.status(201).json({
+    ...row, user_name: users?.name || null, portal_name: portals?.name || null, resume_title: resumes?.title || null,
+    candidate_name: candidates?.marketing_name || candidates?.legal_name || null,
+  });
 });
 
 router.patch("/:id", requireAuth, async (req, res) => {
@@ -74,7 +80,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if (findErr || !existing) return res.status(404).json({ error: "Not found" });
   if (!canModify(req, existing)) return res.status(403).json({ error: "Not allowed" });
 
-  const { portal_id, job_url, job_title, candidate_info, job_description, resume_id, applied_date, status } = req.body;
+  const { portal_id, job_url, job_title, candidate_info, job_description, resume_id, applied_date, status, candidate_id } = req.body;
   const updates = { updated_at: new Date().toISOString() };
   if (portal_id !== undefined) updates.portal_id = portal_id || null;
   if (job_url !== undefined) updates.job_url = job_url?.trim() || null;
@@ -84,10 +90,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if (resume_id !== undefined) updates.resume_id = resume_id || null;
   if (applied_date !== undefined) updates.applied_date = applied_date;
   if (status !== undefined) updates.status = status;
+  if (candidate_id !== undefined) updates.candidate_id = candidate_id || null;
 
   const { data, error } = await supabase
     .from("job_applications").update(updates).eq("id", req.params.id)
-    .select("*, users(name), portals(name), resumes(title)").single();
+    .select("*, users(name), portals(name), resumes(title), candidates(marketing_name, legal_name)").single();
   if (error) return res.status(500).json({ error: error.message });
 
   await supabase.from("audit_logs").insert({
@@ -95,8 +102,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
     action: "UPDATE_APPLICATION", target_type: "job_application", target_id: req.params.id, metadata: updates,
   });
 
-  const { users, portals, resumes, ...row } = data;
-  res.json({ ...row, user_name: users?.name || null, portal_name: portals?.name || null, resume_title: resumes?.title || null });
+  const { users, portals, resumes, candidates, ...row } = data;
+  res.json({
+    ...row, user_name: users?.name || null, portal_name: portals?.name || null, resume_title: resumes?.title || null,
+    candidate_name: candidates?.marketing_name || candidates?.legal_name || null,
+  });
 });
 
 router.delete("/:id", requireAuth, async (req, res) => {

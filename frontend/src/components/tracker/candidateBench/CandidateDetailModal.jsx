@@ -12,6 +12,15 @@ function Row({ label, value }) {
   );
 }
 
+function activityStatusClass(status) {
+  if (status === "Offer") return "bg-green-100 text-green-700";
+  if (status === "Interview Scheduled") return "bg-blue-100 text-blue-700";
+  if (status === "Submitted to Client") return "bg-purple-100 text-purple-700";
+  if (status === "Rejected") return "bg-red-100 text-red-700";
+  if (status === "No Response") return "bg-gray-100 text-gray-500";
+  return "bg-amber-100 text-amber-700";
+}
+
 export default function CandidateDetailModal({ candidateId, user, onClose, onChanged, onEdit }) {
   const isAdmin = user?.role === "admin";
   const canManage = isAdmin && hasPermission(user, "bench");
@@ -23,6 +32,7 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
   const [savingOffer, setSavingOffer] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
+  const [activity, setActivity] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -33,6 +43,9 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
   }, [candidateId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    api.get(`/candidates/${candidateId}/activity`).then(r => setActivity(r.data)).catch(() => setActivity(null));
+  }, [candidateId]);
 
   const notify = () => { load(); onChanged(); };
 
@@ -161,6 +174,43 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
                       onChange={e => setOfferForm(f => ({ ...f, offer_date: e.target.value }))} />
                     <button type="submit" disabled={savingOffer} className="btn-primary disabled:opacity-40">Log offer</button>
                   </form>
+                )}
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Job application activity</div>
+                <p className="text-xs text-muted -mt-0.5 mb-2">
+                  From the Job Applications tracker, for any application logged against this candidate.
+                  {activity?.scope === "own" && " Showing only applications you logged — an admin sees everyone's."}
+                </p>
+                {!activity || activity.applications.length === 0 ? (
+                  <div className="text-sm text-muted">No linked applications yet — link one from the Job Applications tab.</div>
+                ) : (
+                  <>
+                    <div className="text-sm mb-2">
+                      {activity.summary.total} application{activity.summary.total === 1 ? "" : "s"}
+                      {" · "}{activity.summary.byStatus["Interview Scheduled"] || 0} interview{(activity.summary.byStatus["Interview Scheduled"] || 0) === 1 ? "" : "s"} scheduled
+                      {" · "}{activity.summary.byStatus["Offer"] || 0} offer{(activity.summary.byStatus["Offer"] || 0) === 1 ? "" : "s"}
+                    </div>
+                    {activity.scope === "all" && activity.summary.byManager.length > 1 && (
+                      <ul className="text-xs text-muted space-y-0.5 mb-2">
+                        {activity.summary.byManager.map(m => (
+                          <li key={m.user_name}>{m.user_name || "—"}: {m.total} application{m.total === 1 ? "" : "s"}, {m.interviews} interview{m.interviews === 1 ? "" : "s"}, {m.offers} offer{m.offers === 1 ? "" : "s"}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <ul className="text-sm space-y-1.5">
+                      {activity.applications.map(a => (
+                        <li key={a.id} className="flex items-center justify-between gap-2">
+                          <span className="truncate">
+                            {a.job_title}{a.portal_name ? ` — ${a.portal_name}` : ""} · {fmtDate(a.applied_date)}
+                            {activity.scope === "all" && a.user_name ? ` · ${a.user_name}` : ""}
+                          </span>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${activityStatusClass(a.status)}`}>{a.status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 )}
               </div>
 
