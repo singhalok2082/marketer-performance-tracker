@@ -163,18 +163,25 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
 
               <div>
                 <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">System access</div>
+                {(candidate.jump_login_id || candidate.jump_password) && (
+                  <div className="rounded-lg border border-border p-2.5 space-y-0.5 mb-2">
+                    <div className="text-sm font-medium">Jump login</div>
+                    {candidate.jump_login_id && <div className="text-sm text-muted">Login ID: <span className="text-dark">{candidate.jump_login_id}</span></div>}
+                    {candidate.jump_password && <div className="text-sm text-muted">Password: <span className="text-dark">{candidate.jump_password}</span></div>}
+                  </div>
+                )}
                 {candidate.candidate_system_credentials?.length ? (
                   <ul className="space-y-2">
                     {candidate.candidate_system_credentials.map(s => (
                       <li key={s.id} className="rounded-lg border border-border p-2.5 space-y-0.5">
                         {s.system_name && <div className="text-sm"><span className="text-muted">System Name:</span> <span className="font-medium">{s.system_name}</span></div>}
-                        {s.login_id && <div className="text-sm text-muted">Login ID: <span className="text-dark">{s.login_id}</span></div>}
+                        {s.username && <div className="text-sm text-muted">Username: <span className="text-dark">{s.username}</span></div>}
                         {s.password && <div className="text-sm text-muted">Password: <span className="text-dark">{s.password}</span></div>}
                         {s.notes && <div className="text-sm text-muted">Notes: <span className="text-dark">{s.notes}</span></div>}
                       </li>
                     ))}
                   </ul>
-                ) : <div className="text-sm text-muted">None on file.</div>}
+                ) : (!candidate.jump_login_id && !candidate.jump_password && <div className="text-sm text-muted">None on file.</div>)}
               </div>
 
               <div>
@@ -293,7 +300,7 @@ export default function CandidateDetailModal({ candidateId, user, onClose, onCha
                     className="h-8 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface">
                     {copiedKey === "marketing" ? "Copied ✓" : "Copy marketing details"}
                   </button>
-                  <button onClick={() => copy("system", buildSystemText(candidate))} disabled={!candidate.candidate_system_credentials?.length}
+                  <button onClick={() => copy("system", buildSystemText(candidate))} disabled={!candidate.candidate_system_credentials?.length && !candidate.jump_login_id && !candidate.jump_password}
                     className="h-8 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface disabled:opacity-40">
                     {copiedKey === "system" ? "Copied ✓" : "Copy system details"}
                   </button>

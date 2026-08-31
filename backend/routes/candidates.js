@@ -9,10 +9,24 @@ const CANDIDATE_FIELDS = [
   "current_address_linkedin", "is_w2", "is_c2c",
 ];
 
+// Kept separate from CANDIDATE_FIELDS on purpose: these are system-access
+// credentials, same sensitivity as candidate_system_credentials, so they
+// must never be reachable through the manager edit-request path (which
+// only ever calls pickCandidateFields against CANDIDATE_FIELDS).
+const JUMP_FIELDS = ["jump_login_id", "jump_password"];
+
 function pickCandidateFields(body) {
   const out = {};
   for (const f of CANDIDATE_FIELDS) {
     if (body[f] !== undefined) out[f] = body[f] === "" ? null : body[f];
+  }
+  return out;
+}
+
+function pickJumpFields(body) {
+  const out = {};
+  for (const f of JUMP_FIELDS) {
+    if (body[f] !== undefined) out[f] = body[f]?.trim() || null;
   }
   return out;
 }
@@ -44,7 +58,7 @@ function mapDetailRow(d) {
 function mapSystemCredentialRow(s) {
   return {
     system_name: s.system_name?.trim() || null,
-    login_id: s.login_id?.trim() || null,
+    username: s.username?.trim() || null,
     password: s.password?.trim() || null,
     notes: s.notes?.trim() || null,
   };
@@ -180,6 +194,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   const insertRow = {
     ...fields,
+    ...pickJumpFields(req.body),
     marketing_name: fields.marketing_name?.trim() || null,
     legal_name: fields.legal_name?.trim() || null,
     submitted_by: req.user.userId,
@@ -197,7 +212,7 @@ router.post("/", requireAuth, async (req, res) => {
     await replaceChildRows("candidate_education", data.id, req.body.education, mapEducationRow);
     await replaceChildRows("candidate_details", data.id, (req.body.details || []).filter(d => d.label?.trim() || d.value?.trim()), mapDetailRow);
     await replaceChildRows("candidate_system_credentials", data.id,
-      (req.body.system_credentials || []).filter(s => s.system_name?.trim() || s.login_id?.trim() || s.password?.trim() || s.notes?.trim()), mapSystemCredentialRow);
+      (req.body.system_credentials || []).filter(s => s.system_name?.trim() || s.username?.trim() || s.password?.trim() || s.notes?.trim()), mapSystemCredentialRow);
   } catch (childErr) {
     await supabase.from("candidates").delete().eq("id", data.id);
     return res.status(500).json({ error: childErr.message });
@@ -216,7 +231,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   const fieldErr = validateCandidateFields(fields);
   if (fieldErr) return res.status(400).json({ error: fieldErr });
 
-  const updates = { ...fields, updated_at: new Date().toISOString() };
+  const updates = { ...fields, ...pickJumpFields(req.body), updated_at: new Date().toISOString() };
   if (updates.marketing_name !== undefined) updates.marketing_name = updates.marketing_name?.trim() || null;
   if (updates.legal_name !== undefined) updates.legal_name = updates.legal_name?.trim() || null;
 
@@ -229,7 +244,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
   if (req.body.system_credentials !== undefined) {
     await replaceChildRows("candidate_system_credentials", data.id,
-      (req.body.system_credentials || []).filter(s => s.system_name?.trim() || s.login_id?.trim() || s.password?.trim() || s.notes?.trim()), mapSystemCredentialRow);
+      (req.body.system_credentials || []).filter(s => s.system_name?.trim() || s.username?.trim() || s.password?.trim() || s.notes?.trim()), mapSystemCredentialRow);
   }
 
   await logAudit(req, "UPDATE_CANDIDATE", data.id, updates);

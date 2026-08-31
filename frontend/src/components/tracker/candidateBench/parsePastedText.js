@@ -72,7 +72,7 @@ export function parsePastedCandidateText(text) {
     const key = name.toLowerCase();
     let row = systemCredentials.find(s => s.system_name.toLowerCase() === key);
     if (!row) {
-      row = { system_name: name, login_id: "", password: "", notes: "" };
+      row = { system_name: name, username: "", password: "", notes: "" };
       systemCredentials.push(row);
     }
     return row;
@@ -92,10 +92,12 @@ export function parsePastedCandidateText(text) {
     const { label, value } = parts;
     const n = normalize(label);
 
-    // Check "password" before "login"/"username" — a label like "Jump Login
-    // ID Password" contains both words, and it's the password.
-    if (n.includes("jump") && n.includes("pass")) { getOrCreateSystem("Jump").password = value; continue; }
-    if (n.includes("jump") && n.includes("login")) { getOrCreateSystem("Jump").login_id = value; continue; }
+    // Jump is the one parent login that gets you in — not a candidate system
+    // itself — so it goes on the candidate directly, not into systemCredentials.
+    // Check "password" before "login" — a label like "Jump Login ID Password"
+    // contains both words, and it's the password.
+    if (n.includes("jump") && n.includes("pass")) { candidate.jump_password = value; continue; }
+    if (n.includes("jump") && n.includes("login")) { candidate.jump_login_id = value; continue; }
     if (n.includes("system name")) { currentSystem = getOrCreateSystem(value); continue; }
     if (n.includes("pass")) {
       if (!currentSystem) currentSystem = getOrCreateSystem("System");
@@ -104,7 +106,7 @@ export function parsePastedCandidateText(text) {
     }
     if (n === "username" || n.includes("login id")) {
       if (!currentSystem) currentSystem = getOrCreateSystem("System");
-      currentSystem.login_id = value;
+      currentSystem.username = value;
       continue;
     }
 

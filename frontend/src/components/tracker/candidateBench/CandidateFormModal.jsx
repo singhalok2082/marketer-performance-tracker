@@ -61,7 +61,7 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
   const removeDetailRow = (i) => set({ details: form.details.filter((_, idx) => idx !== i) });
 
   const setSystemRow = (i, patch) => set({ system_credentials: form.system_credentials.map((r, idx) => idx === i ? { ...r, ...patch } : r) });
-  const addSystemRow = () => set({ system_credentials: [...form.system_credentials, { system_name: "", login_id: "", password: "", notes: "" }] });
+  const addSystemRow = () => set({ system_credentials: [...form.system_credentials, { system_name: "", username: "", password: "", notes: "" }] });
   const removeSystemRow = (i) => set({ system_credentials: form.system_credentials.filter((_, idx) => idx !== i) });
 
   const submit = async (e) => {
@@ -73,7 +73,7 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
     const education = form.education.filter(r => r.degree_name || r.institution || r.location || r.start_year || r.end_year)
       .map(r => ({ ...r, start_year: r.start_year ? Number(r.start_year) : null, end_year: r.end_year ? Number(r.end_year) : null }));
     const details = form.details.filter(r => r.label.trim() || r.value.trim());
-    const systemCredentials = form.system_credentials.filter(r => r.system_name.trim() || r.login_id.trim() || r.password.trim() || r.notes.trim());
+    const systemCredentials = form.system_credentials.filter(r => r.system_name.trim() || r.username.trim() || r.password.trim() || r.notes.trim());
 
     const core = {
       marketing_name: form.marketing_name.trim(),
@@ -88,15 +88,17 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
       is_w2: form.is_w2,
       is_c2c: form.is_c2c,
     };
+    // Jump login and system access are admin-only after approval — kept out
+    // of the edit-request payload entirely, same rule as system_credentials.
+    const jump = { jump_login_id: form.jump_login_id || "", jump_password: form.jump_password || "" };
 
     setSaving(true);
     try {
       if (mode === "create") {
-        await api.post("/candidates", { ...core, education, details, system_credentials: systemCredentials });
+        await api.post("/candidates", { ...core, ...jump, education, details, system_credentials: systemCredentials });
       } else if (mode === "edit") {
-        await api.patch(`/candidates/${candidateId}`, { ...core, education, details, system_credentials: systemCredentials });
+        await api.patch(`/candidates/${candidateId}`, { ...core, ...jump, education, details, system_credentials: systemCredentials });
       } else {
-        // System credentials are admin-only after approval — never proposed via an edit request.
         await api.post(`/candidates/${candidateId}/edit-requests`, { changes: { candidate: core, education, details } });
       }
       onSaved();
@@ -222,22 +224,34 @@ export default function CandidateFormModal({ mode, candidateId, initial, onClose
 
           {mode !== "edit-request" && (
             <div>
+              <div className="text-xs font-medium mb-1.5">System access</div>
+              <p className="text-xs text-muted -mt-0.5 mb-2">Only admins can edit this once the candidate is approved.</p>
+
+              <div className="rounded-lg border border-border p-3 mb-3">
+                <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Jump login</div>
+                <p className="text-xs text-muted -mt-0.5 mb-2">The one login that gets you into Jump — from there you find this candidate's individual systems below.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input className="input" placeholder="Jump login ID (email)" value={form.jump_login_id} onChange={e => set({ jump_login_id: e.target.value })} />
+                  <input className="input" placeholder="Jump password" value={form.jump_password} onChange={e => set({ jump_password: e.target.value })} />
+                </div>
+              </div>
+
               <div className="flex items-center justify-between mb-1.5">
-                <div className="text-xs font-medium">System access</div>
+                <div className="text-xs font-semibold text-muted uppercase tracking-wide">Candidate systems (inside Jump)</div>
                 <button type="button" onClick={addSystemRow} className="text-xs font-semibold text-primary">+ Add system</button>
               </div>
-              <p className="text-xs text-muted -mt-0.5 mb-2">Login credentials for Jump, client interview systems, etc. Only admins can edit these once the candidate is approved.</p>
+              <p className="text-xs text-muted -mt-0.5 mb-2">Each system is found by its System Name + Username, and has its own password.</p>
               <div className="space-y-2">
                 {form.system_credentials.map((row, i) => (
                   <div key={i} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-                    <input className="input sm:col-span-3" placeholder="System name (e.g. Jump)" value={row.system_name} onChange={e => setSystemRow(i, { system_name: e.target.value })} />
-                    <input className="input sm:col-span-3" placeholder="Login ID" value={row.login_id} onChange={e => setSystemRow(i, { login_id: e.target.value })} />
+                    <input className="input sm:col-span-3" placeholder="System name" value={row.system_name} onChange={e => setSystemRow(i, { system_name: e.target.value })} />
+                    <input className="input sm:col-span-3" placeholder="Username" value={row.username} onChange={e => setSystemRow(i, { username: e.target.value })} />
                     <input className="input sm:col-span-2" placeholder="Password" value={row.password} onChange={e => setSystemRow(i, { password: e.target.value })} />
                     <input className="input sm:col-span-3" placeholder="Other details (optional)" value={row.notes} onChange={e => setSystemRow(i, { notes: e.target.value })} />
                     <button type="button" onClick={() => removeSystemRow(i)} className="sm:col-span-1 text-xs text-red-600 font-semibold">Remove</button>
                   </div>
                 ))}
-                {form.system_credentials.length === 0 && <div className="text-xs text-muted">No system access added yet.</div>}
+                {form.system_credentials.length === 0 && <div className="text-xs text-muted">No candidate systems added yet.</div>}
               </div>
             </div>
           )}

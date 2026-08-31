@@ -17,6 +17,7 @@ export const emptyCandidateForm = {
   marketing_name: "", legal_name: "", date_of_birth: "", ssn_last4: "",
   visa_type: "", visa_start_date: "", visa_end_date: "", us_entry_date: "",
   current_address_linkedin: "", is_w2: false, is_c2c: false,
+  jump_login_id: "", jump_password: "",
   education: [], details: [], system_credentials: [],
 };
 
@@ -33,13 +34,15 @@ export function candidateToForm(c) {
     current_address_linkedin: c.current_address_linkedin || "",
     is_w2: !!c.is_w2,
     is_c2c: !!c.is_c2c,
+    jump_login_id: c.jump_login_id || "",
+    jump_password: c.jump_password || "",
     education: (c.candidate_education || []).map(e => ({
       degree_name: e.degree_name || "", institution: e.institution || "",
       location: e.location || "", start_year: e.start_year || "", end_year: e.end_year || "",
     })),
     details: (c.candidate_details || []).map(d => ({ label: d.label || "", value: d.value || "" })),
     system_credentials: (c.candidate_system_credentials || []).map(s => ({
-      system_name: s.system_name || "", login_id: s.login_id || "", password: s.password || "", notes: s.notes || "",
+      system_name: s.system_name || "", username: s.username || "", password: s.password || "", notes: s.notes || "",
     })),
   };
 }
@@ -73,15 +76,24 @@ export function buildMarketingText(c) {
 }
 
 export function buildSystemText(c) {
-  const creds = c.candidate_system_credentials || [];
-  if (!creds.length) return "";
-  return creds.map(s => {
+  const blocks = [];
+
+  if (c.jump_login_id || c.jump_password) {
+    const lines = ["Jump"];
+    if (c.jump_login_id) lines.push(`Login ID: ${c.jump_login_id}`);
+    if (c.jump_password) lines.push(`Password: ${c.jump_password}`);
+    blocks.push(lines.join("\n"));
+  }
+
+  for (const s of c.candidate_system_credentials || []) {
     const lines = [s.system_name || "System"];
-    if (s.login_id) lines.push(`Login ID: ${s.login_id}`);
+    if (s.username) lines.push(`Username: ${s.username}`);
     if (s.password) lines.push(`Password: ${s.password}`);
     if (s.notes) lines.push(s.notes);
-    return lines.join("\n");
-  }).join("\n\n");
+    blocks.push(lines.join("\n"));
+  }
+
+  return blocks.join("\n\n");
 }
 
 export function buildAllText(c) {
