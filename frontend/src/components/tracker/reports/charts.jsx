@@ -65,7 +65,7 @@ export function TrendChart({ data, color, metricLabel = "Value", ariaLabel = "Tr
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} role="img" aria-label={ariaLabel}
+      <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" role="img" aria-label={ariaLabel}
         onMouseMove={e => setHover(nearestIndex(e.clientX, e.currentTarget))}
         onMouseLeave={() => setHover(null)} style={{ cursor: "default" }}>
         <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} className="stroke-border" strokeWidth={1} />
