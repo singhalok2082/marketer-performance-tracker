@@ -36,10 +36,12 @@ export function BarChart({ data, color, unit = "", ariaLabel = "Bar chart" }) {
 }
 
 // Area/line trend — a single continuous series over time. Rounded line
-// join, filled area at low opacity down to the baseline, a dot + native
-// tooltip per point, sparse x-axis labels (start/mid/end only) so dates
-// never collide regardless of how many points are in range.
-export function TrendChart({ data, color, ariaLabel = "Trend over time" }) {
+// join, filled area at low opacity down to the baseline, sparse x-axis
+// labels (start/mid/end only) so dates never collide regardless of how
+// many points are in range. Tooltip is a real HTML element positioned over
+// the hovered point (not the native SVG <title>, which is slow to appear
+// and easy to miss) — shows the date and metric name immediately on hover.
+export function TrendChart({ data, color, metricLabel = "Value", ariaLabel = "Trend over time" }) {
   if (!data.length) return <div className="text-sm text-muted">No data for this range.</div>;
   const w = 560, h = 160, padL = 34, padR = 12, padT = 12, padB = 24;
   const plotW = w - padL - padR, plotH = h - padT - padB;
@@ -53,30 +55,46 @@ export function TrendChart({ data, color, ariaLabel = "Trend over time" }) {
   const areaPath = `${linePath} L ${points[points.length - 1][0]} ${padT + plotH} L ${points[0][0]} ${padT + plotH} Z`;
 
   const labelIdx = data.length <= 2 ? data.map((_, i) => i) : [0, Math.floor((data.length - 1) / 2), data.length - 1];
+  const nearestIndex = (clientX, svgEl) => {
+    const rect = svgEl.getBoundingClientRect();
+    const relX = ((clientX - rect.left) / rect.width) * w;
+    let best = 0, bestDist = Infinity;
+    points.forEach(([px], i) => { const dist = Math.abs(px - relX); if (dist < bestDist) { bestDist = dist; best = i; } });
+    return best;
+  };
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} role="img" aria-label={ariaLabel}>
-      <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} className="stroke-border" strokeWidth={1} />
-      <path d={areaPath} fill={color} opacity={0.12} />
-      <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-      {points.map(([px, py], i) => (
-        <g key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-          <title>{`${data[i].label}: ${data[i].value.toLocaleString()}`}</title>
-          <circle cx={px} cy={py} r={hover === i ? 5 : 3} fill={color} stroke="#fff" strokeWidth={1.5} />
-          <rect x={px - 8} y={padT} width={16} height={plotH} fill="transparent" style={{ cursor: "default" }} />
-        </g>
-      ))}
-      {labelIdx.map(i => (
-        <text key={i} x={x(i)} y={h - 6} textAnchor={i === 0 ? "start" : i === data.length - 1 ? "end" : "middle"} fontSize="10" className="fill-muted">
-          {data[i].label}
-        </text>
-      ))}
+    <div className="relative">
+      <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} role="img" aria-label={ariaLabel}
+        onMouseMove={e => setHover(nearestIndex(e.clientX, e.currentTarget))}
+        onMouseLeave={() => setHover(null)} style={{ cursor: "default" }}>
+        <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} className="stroke-border" strokeWidth={1} />
+        <path d={areaPath} fill={color} opacity={0.12} />
+        <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {hover !== null && (
+          <line x1={points[hover][0]} y1={padT} x2={points[hover][0]} y2={padT + plotH} className="stroke-border" strokeWidth={1} strokeDasharray="3,3" />
+        )}
+        {points.map(([px, py], i) => (
+          <circle key={i} cx={px} cy={py} r={hover === i ? 5 : 3} fill={color} stroke="#fff" strokeWidth={1.5} />
+        ))}
+        {labelIdx.map(i => (
+          <text key={i} x={x(i)} y={h - 6} textAnchor={i === 0 ? "start" : i === data.length - 1 ? "end" : "middle"} fontSize="10" className="fill-muted">
+            {data[i].label}
+          </text>
+        ))}
+      </svg>
       {hover !== null && (
-        <text x={points[hover][0]} y={Math.max(padT + 10, points[hover][1] - 10)} textAnchor="middle" fontSize="11" fontWeight="600" className="fill-dark">
-          {data[hover].value.toLocaleString()}
-        </text>
+        <div className="absolute pointer-events-none bg-white border border-border rounded-lg shadow-popover px-2.5 py-1.5 text-xs whitespace-nowrap z-10"
+          style={{
+            left: `${(points[hover][0] / w) * 100}%`,
+            top: `${(points[hover][1] / h) * 100}%`,
+            transform: `translate(-50%, calc(-100% - 8px))`,
+          }}>
+          <div className="font-semibold text-dark">{data[hover].label}</div>
+          <div className="text-muted">{metricLabel}: <span className="font-semibold text-dark">{data[hover].value.toLocaleString()}</span></div>
+        </div>
       )}
-    </svg>
+    </div>
   );
 }
 

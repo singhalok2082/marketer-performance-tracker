@@ -36,6 +36,24 @@ const STATUS_COLORS = {
   "No Response": "#6B7280",
 };
 
+// Each metric gets its own small trend chart rather than overlaying them on
+// one shared axis — applications run in the hundreds and offers in single
+// digits, so one linear scale would make offers invisible (the dataviz
+// skill's "two measures of different scale -> small multiples" rule).
+// Colors for cold email/vendor call/screening/interview/offer match
+// ACTIVITY_COLORS so the same metric reads the same color everywhere.
+const TREND_METRICS = [
+  { key: "applications", label: "Applications", color: "#eb6834" },
+  { key: "submissions", label: "Submissions", color: "#e87ba4" },
+  { key: "coldEmails", label: "Cold Emails", color: ACTIVITY_COLORS.cold_email },
+  { key: "vendorCalls", label: "Vendor Calls", color: ACTIVITY_COLORS.vendor_call },
+  { key: "techScreenings", label: "Tech Screenings", color: ACTIVITY_COLORS.tech_screening },
+  { key: "interviews", label: "Interviews", color: ACTIVITY_COLORS.interview },
+  { key: "offers", label: "Offers", color: ACTIVITY_COLORS.offer },
+  { key: "outreach", label: "Inbound Requirements", color: "#e34948" },
+];
+const DEFAULT_TREND_METRICS = ["applications"];
+
 function KpiCard({ label, value, sub }) {
   return (
     <div className="card p-4">
@@ -46,13 +64,32 @@ function KpiCard({ label, value, sub }) {
   );
 }
 
-export default function Reports() {
+export default function Reports({ user }) {
   const [range, setRange] = useState("monthly");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showMetricPicker, setShowMetricPicker] = useState(false);
+
+  // Persisted per-admin, same pattern as the dashboard's own background/theme
+  // preference — "tick or untick what I want to see" sticks across visits.
+  const metricsKey = `pulse-reports-trend-metrics:${user?.id || "admin"}`;
+  const [selectedMetrics, setSelectedMetrics] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(metricsKey));
+      return Array.isArray(saved) && saved.length ? saved : DEFAULT_TREND_METRICS;
+    } catch { return DEFAULT_TREND_METRICS; }
+  });
+  const toggleMetric = (key) => {
+    setSelectedMetrics(prev => {
+      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+      const safe = next.length ? next : prev; // keep at least one selected
+      try { localStorage.setItem(metricsKey, JSON.stringify(safe)); } catch { /* ignore */ }
+      return safe;
+    });
+  };
 
   const { start, end } = getRangeBounds(range, customStart, customEnd);
 
@@ -116,12 +153,40 @@ export default function Reports() {
           </div>
 
           <div className="card p-4">
-            <div className="text-sm font-semibold mb-1">Applications over time</div>
-            <div className="text-xs text-muted mb-3">
-              {report.trend.granularity === "week" ? "Grouped by week — range is long enough that daily points would overlap." : "Daily."}
+            <div className="flex items-center justify-between gap-3 mb-1 print-hide">
+              <div>
+                <div className="text-sm font-semibold">Trends over time</div>
+                <div className="text-xs text-muted">
+                  {report.trend.granularity === "week" ? "Grouped by week — range is long enough that daily points would overlap." : "Daily."}
+                </div>
+              </div>
+              <button onClick={() => setShowMetricPicker(s => !s)} className="h-8 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-surface shrink-0">
+                Customize ({selectedMetrics.length})
+              </button>
             </div>
-            <TrendChart color="#2a78d6" ariaLabel="Applications over time"
-              data={report.trend.points.map(p => ({ label: fmtShortDate(p.date), value: p.count }))} />
+            <div className="hidden print:block text-sm font-semibold mb-3">Trends over time</div>
+
+            {showMetricPicker && (
+              <div className="print-hide grid gap-1.5 mb-4 mt-2 p-3 rounded-lg bg-surface border border-border" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))" }}>
+                {TREND_METRICS.map(m => (
+                  <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" checked={selectedMetrics.includes(m.key)} onChange={() => toggleMetric(m.key)} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: m.color }} />
+                    {m.label}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className={`grid gap-4 ${selectedMetrics.length > 1 ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+              {TREND_METRICS.filter(m => selectedMetrics.includes(m.key)).map(m => (
+                <div key={m.key}>
+                  <div className="text-xs font-semibold text-medium mb-1.5">{m.label}</div>
+                  <TrendChart color={m.color} metricLabel={m.label} ariaLabel={`${m.label} over time`}
+                    data={report.trend.points.map(p => ({ label: fmtShortDate(p.date), value: p[m.key] || 0 }))} />
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

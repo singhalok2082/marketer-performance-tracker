@@ -656,7 +656,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
               {s.tab === "applications" && <JobApplications user={user} />}
               {s.tab === "outreach" && <RecruiterOutreach user={user} />}
               {s.tab === "bench" && <CandidateBench user={user} />}
-              {s.tab === "reports" && <Reports />}
+              {s.tab === "reports" && <Reports user={user} />}
               {s.tab === "activities" && <VendorActivities user={user} />}
               {s.tab === "tasks" && <DailyTasks user={user} />}
               {s.tab === "notes" && <DailyNotes user={user} />}

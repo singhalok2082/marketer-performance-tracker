@@ -25,37 +25,44 @@ async function fetchAllRows(table, columns, build) {
   return rows;
 }
 
-// Buckets applications by day (short ranges) or by week (long ranges, so a
-// 6-month view doesn't render ~180 unreadable daily points). Every bucket in
+// Buckets several metrics onto the same day (short ranges) or week (long
+// ranges, so a 6-month view doesn't render ~180 unreadable points) buckets,
+// so every metric's sparkline lines up on the same dates. Every bucket in
 // the range is seeded at 0 first so a quiet day/week shows as a real dip,
 // not a gap that reads as missing data.
-function buildTrend(apps, start, end) {
+//
+// datasets: [{ key, rows, dateField, filter? }] — filter lets one row set
+// (e.g. job_applications) feed multiple metrics (applications, submissions).
+function buildTrendSeries(datasets, start, end) {
   const startDate = new Date(start + "T00:00:00Z");
   const endDate = new Date(end + "T00:00:00Z");
   const totalDays = Math.max(1, Math.round((endDate - startDate) / 86400000) + 1);
   const byWeek = totalDays > 62;
   const step = byWeek ? 7 : 1;
 
-  const buckets = new Map();
+  const bucketDates = [];
   for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + step)) {
-    buckets.set(d.toISOString().slice(0, 10), 0);
+    bucketDates.push(d.toISOString().slice(0, 10));
   }
 
-  const bucketKeys = Array.from(buckets.keys());
   const keyFor = (dateStr) => {
     if (!byWeek) return dateStr;
-    const d = new Date(dateStr + "T00:00:00Z");
-    let key = bucketKeys[0];
-    for (const k of bucketKeys) { if (k <= dateStr) key = k; else break; }
+    let key = bucketDates[0];
+    for (const k of bucketDates) { if (k <= dateStr) key = k; else break; }
     return key;
   };
 
-  for (const a of apps) {
-    const key = keyFor(a.applied_date);
-    if (buckets.has(key)) buckets.set(key, buckets.get(key) + 1);
+  const pointByDate = new Map(bucketDates.map(date => [date, { date, ...Object.fromEntries(datasets.map(ds => [ds.key, 0])) }]));
+
+  for (const ds of datasets) {
+    for (const row of ds.rows) {
+      if (ds.filter && !ds.filter(row)) continue;
+      const point = pointByDate.get(keyFor(row[ds.dateField]));
+      if (point) point[ds.key] += 1;
+    }
   }
 
-  return { granularity: byWeek ? "week" : "day", points: Array.from(buckets.entries()).map(([date, count]) => ({ date, count })) };
+  return { granularity: byWeek ? "week" : "day", points: Array.from(pointByDate.values()) };
 }
 
 // Team performance report: applications, vendor activity (cold emails, vendor
@@ -126,7 +133,16 @@ router.get("/team-performance", requireAuth, requirePermission("reports"), async
     byStatus,
     byActivityType,
     byManager,
-    trend: buildTrend(apps, start, end),
+    trend: buildTrendSeries([
+      { key: "applications", rows: apps, dateField: "applied_date" },
+      { key: "submissions", rows: apps, dateField: "applied_date", filter: a => isSubmission(a.status) },
+      { key: "coldEmails", rows: vas, dateField: "activity_date", filter: a => a.activity_type === "cold_email" },
+      { key: "vendorCalls", rows: vas, dateField: "activity_date", filter: a => a.activity_type === "vendor_call" },
+      { key: "techScreenings", rows: vas, dateField: "activity_date", filter: a => a.activity_type === "tech_screening" },
+      { key: "interviews", rows: vas, dateField: "activity_date", filter: a => a.activity_type === "interview" },
+      { key: "offers", rows: vas, dateField: "activity_date", filter: a => a.activity_type === "offer" },
+      { key: "outreach", rows: outreach, dateField: "contacted_date" },
+    ], start, end),
   });
 });
 
