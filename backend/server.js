@@ -22,6 +22,7 @@ const phoneNumberRoutes = require("./routes/phoneNumbers");
 const ticketRoutes = require("./routes/tickets");
 const leadRoutes = require("./routes/leads");
 const candidateRoutes = require("./routes/candidates");
+const reportRoutes = require("./routes/reports");
 
 const app = express();
 
@@ -77,6 +78,7 @@ app.use("/api/phone-numbers",     phoneNumberRoutes);
 app.use("/api/tickets",           ticketRoutes);
 app.use("/api/leads",             leadRoutes);
 app.use("/api/candidates",        candidateRoutes);
+app.use("/api/reports",           reportRoutes);
 
 // Health check
 app.get("/api/health", (_, res) => res.json({ ok: true, ts: new Date().toISOString() }));

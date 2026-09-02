@@ -13,6 +13,7 @@ import Support from "../components/tracker/Support";
 import LiveFeed from "../components/tracker/LiveFeed";
 import DailyTasks from "../components/tracker/DailyTasks";
 import CandidateBench from "../components/tracker/candidateBench/CandidateBench";
+import Reports from "../components/tracker/reports/Reports";
 import { hasPermission } from "./admin/permissionSections";
 
 export const img = (name) => `${import.meta.env.BASE_URL}images/${name}.jpg`;
@@ -102,6 +103,7 @@ function getRangeBounds(timeRange, customStart, customEnd) {
 
 const TABS = [
   ["overview", "Overview"],
+  ["reports", "Reports"],
   ["applications", "Applications"],
   ["outreach", "Inbound Requirements"],
   ["bench", "Candidate Bench"],
@@ -139,7 +141,11 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
   // DOB, visa data) — unlike every other tab, hide it from the nav entirely
   // for a scoped admin who wasn't granted the "bench" permission, rather than
   // just letting the API 403 after they click in.
-  const visibleTabs = TABS.filter(([key]) => key !== "bench" || !isAdminUser || hasPermission(user, "bench"));
+  const visibleTabs = TABS.filter(([key]) => {
+    if (key === "bench") return !isAdminUser || hasPermission(user, "bench");
+    if (key === "reports") return isAdminUser && hasPermission(user, "reports"); // team-wide report, not a per-manager view
+    return true;
+  });
 
   const [s, setRaw] = useState({
     tab: "overview",
@@ -641,7 +647,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
         {/* ══ BODY ══ */}
         <div className="px-8 py-6 pb-16 flex-1">
 
-          {["linkedin", "resumes", "emails", "phone-numbers", "applications", "outreach", "bench", "activities", "tasks", "notes", "support"].includes(s.tab) && (
+          {["linkedin", "resumes", "emails", "phone-numbers", "applications", "outreach", "bench", "reports", "activities", "tasks", "notes", "support"].includes(s.tab) && (
             <div className={`${cardCls} p-6`}>
               {s.tab === "linkedin" && <LinkedInProfiles user={user} />}
               {s.tab === "resumes" && <Resumes user={user} />}
@@ -650,6 +656,7 @@ export default function PerformanceDashboard({ user, onLogout, onOpenAdminPanel 
               {s.tab === "applications" && <JobApplications user={user} />}
               {s.tab === "outreach" && <RecruiterOutreach user={user} />}
               {s.tab === "bench" && <CandidateBench user={user} />}
+              {s.tab === "reports" && <Reports />}
               {s.tab === "activities" && <VendorActivities user={user} />}
               {s.tab === "tasks" && <DailyTasks user={user} />}
               {s.tab === "notes" && <DailyNotes user={user} />}

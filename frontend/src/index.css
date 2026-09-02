@@ -5,6 +5,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Generic "print just this one element" pattern — used by the Reports tab's
+   PDF export (window.print()) so the sidebar/nav/buttons drop out and only
+   the report itself ends up on the page. Any future print target can reuse
+   this by tagging its root .print-area and any in-page chrome .print-hide. */
+@media print {
+  .print-hide { display: none !important; }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+}
+
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
   body {

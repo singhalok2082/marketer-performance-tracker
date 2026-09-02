@@ -3,7 +3,7 @@
 const PERMISSION_KEYS = [
   "sessions", "logs", "analytics", "traffic", "suspicious",
   "users", "portals", "passwords",
-  "applications", "outreach", "activities", "tasks", "notes", "linkedin", "resumes", "support", "bench",
+  "applications", "outreach", "activities", "tasks", "notes", "linkedin", "resumes", "support", "bench", "reports",
 ];
 
 // null/undefined permissions on the user record = unrestricted (full admin).
