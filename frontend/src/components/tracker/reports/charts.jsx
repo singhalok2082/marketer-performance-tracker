@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 
-// Horizontal bar chart — one series, thin marks, rounded value-end anchored
-// to the baseline, direct value labels (every bar, since there are few
-// enough managers for this to read as a small-multiples table rather than
-// clutter — see dataviz skill's "selective" rule).
-export function BarChart({ data, color, unit = "" }) {
+// Horizontal bar chart — thin marks, rounded value-end anchored to the
+// baseline, direct value labels on every bar (few enough rows to read as
+// small multiples rather than clutter — dataviz skill's "selective" rule).
+// Each datum can carry its own `color` (status charts); otherwise falls
+// back to the single `color` prop (single-series comparisons).
+export function BarChart({ data, color, unit = "", ariaLabel = "Bar chart" }) {
   if (!data.length) return <div className="text-sm text-muted">No data for this range.</div>;
   const max = Math.max(1, ...data.map(d => d.value));
   const [hover, setHover] = useState(null);
@@ -13,7 +14,7 @@ export function BarChart({ data, color, unit = "" }) {
   const svgW = leftPad + chartW + rightPad;
 
   return (
-    <svg viewBox={`0 0 ${svgW} ${totalH}`} width="100%" height={totalH} role="img" aria-label="Applications per manager">
+    <svg viewBox={`0 0 ${svgW} ${totalH}`} width="100%" height={totalH} role="img" aria-label={ariaLabel}>
       {data.map((d, i) => {
         const w = Math.max((d.value / max) * chartW, d.value > 0 ? 4 : 0);
         const y = i * (barH + gap);
@@ -23,13 +24,58 @@ export function BarChart({ data, color, unit = "" }) {
             <title>{`${d.label}: ${d.value.toLocaleString()}${unit}`}</title>
             <text x={labelW} y={y + barH / 2} textAnchor="end" dominantBaseline="middle" fontSize="12" className="fill-medium">{d.label}</text>
             <rect x={leftPad} y={y} width={chartW} height={barH} rx={4} className="fill-surface-alt" />
-            <rect x={leftPad} y={y} width={w} height={barH} rx={4} fill={color} opacity={dim ? 0.4 : 1} />
+            <rect x={leftPad} y={y} width={w} height={barH} rx={4} fill={d.color || color} opacity={dim ? 0.4 : 1} />
             <text x={leftPad + w + 8} y={y + barH / 2} dominantBaseline="middle" fontSize="12" fontWeight="600" className="fill-dark">
               {d.value.toLocaleString()}{unit}
             </text>
           </g>
         );
       })}
+    </svg>
+  );
+}
+
+// Area/line trend — a single continuous series over time. Rounded line
+// join, filled area at low opacity down to the baseline, a dot + native
+// tooltip per point, sparse x-axis labels (start/mid/end only) so dates
+// never collide regardless of how many points are in range.
+export function TrendChart({ data, color, ariaLabel = "Trend over time" }) {
+  if (!data.length) return <div className="text-sm text-muted">No data for this range.</div>;
+  const w = 560, h = 160, padL = 34, padR = 12, padT = 12, padB = 24;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const max = Math.max(1, ...data.map(d => d.value));
+  const [hover, setHover] = useState(null);
+
+  const x = i => padL + (data.length === 1 ? plotW / 2 : (i / (data.length - 1)) * plotW);
+  const y = v => padT + plotH - (v / max) * plotH;
+  const points = data.map((d, i) => [x(i), y(d.value)]);
+  const linePath = points.map(([px, py], i) => `${i === 0 ? "M" : "L"} ${px} ${py}`).join(" ");
+  const areaPath = `${linePath} L ${points[points.length - 1][0]} ${padT + plotH} L ${points[0][0]} ${padT + plotH} Z`;
+
+  const labelIdx = data.length <= 2 ? data.map((_, i) => i) : [0, Math.floor((data.length - 1) / 2), data.length - 1];
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} role="img" aria-label={ariaLabel}>
+      <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} className="stroke-border" strokeWidth={1} />
+      <path d={areaPath} fill={color} opacity={0.12} />
+      <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      {points.map(([px, py], i) => (
+        <g key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+          <title>{`${data[i].label}: ${data[i].value.toLocaleString()}`}</title>
+          <circle cx={px} cy={py} r={hover === i ? 5 : 3} fill={color} stroke="#fff" strokeWidth={1.5} />
+          <rect x={px - 8} y={padT} width={16} height={plotH} fill="transparent" style={{ cursor: "default" }} />
+        </g>
+      ))}
+      {labelIdx.map(i => (
+        <text key={i} x={x(i)} y={h - 6} textAnchor={i === 0 ? "start" : i === data.length - 1 ? "end" : "middle"} fontSize="10" className="fill-muted">
+          {data[i].label}
+        </text>
+      ))}
+      {hover !== null && (
+        <text x={points[hover][0]} y={Math.max(padT + 10, points[hover][1] - 10)} textAnchor="middle" fontSize="11" fontWeight="600" className="fill-dark">
+          {data[hover].value.toLocaleString()}
+        </text>
+      )}
     </svg>
   );
 }

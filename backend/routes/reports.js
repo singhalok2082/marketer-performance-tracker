@@ -25,6 +25,39 @@ async function fetchAllRows(table, columns, build) {
   return rows;
 }
 
+// Buckets applications by day (short ranges) or by week (long ranges, so a
+// 6-month view doesn't render ~180 unreadable daily points). Every bucket in
+// the range is seeded at 0 first so a quiet day/week shows as a real dip,
+// not a gap that reads as missing data.
+function buildTrend(apps, start, end) {
+  const startDate = new Date(start + "T00:00:00Z");
+  const endDate = new Date(end + "T00:00:00Z");
+  const totalDays = Math.max(1, Math.round((endDate - startDate) / 86400000) + 1);
+  const byWeek = totalDays > 62;
+  const step = byWeek ? 7 : 1;
+
+  const buckets = new Map();
+  for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + step)) {
+    buckets.set(d.toISOString().slice(0, 10), 0);
+  }
+
+  const bucketKeys = Array.from(buckets.keys());
+  const keyFor = (dateStr) => {
+    if (!byWeek) return dateStr;
+    const d = new Date(dateStr + "T00:00:00Z");
+    let key = bucketKeys[0];
+    for (const k of bucketKeys) { if (k <= dateStr) key = k; else break; }
+    return key;
+  };
+
+  for (const a of apps) {
+    const key = keyFor(a.applied_date);
+    if (buckets.has(key)) buckets.set(key, buckets.get(key) + 1);
+  }
+
+  return { granularity: byWeek ? "week" : "day", points: Array.from(buckets.entries()).map(([date, count]) => ({ date, count })) };
+}
+
 // Team performance report: applications, vendor activity (cold emails, vendor
 // calls, screenings, interviews, offers), and inbound outreach for a date
 // range, broken down team-wide and per account manager.
@@ -93,6 +126,7 @@ router.get("/team-performance", requireAuth, requirePermission("reports"), async
     byStatus,
     byActivityType,
     byManager,
+    trend: buildTrend(apps, start, end),
   });
 });
 

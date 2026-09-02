@@ -15,6 +15,10 @@ export function fmtDateLabel(iso) {
   return new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
+export function fmtShortDate(iso) {
+  return new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 const CSV_COLUMNS = [
   ["name", "Manager"],
   ["applications", "Applications"],
@@ -25,7 +29,7 @@ const CSV_COLUMNS = [
   ["techScreenings", "Tech Screenings"],
   ["interviews", "Interviews"],
   ["offers", "Offers"],
-  ["outreach", "Outreach"],
+  ["outreach", "Inbound Requirements"],
 ];
 
 function csvEscape(v) {

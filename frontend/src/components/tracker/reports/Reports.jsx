@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import api from "../../../api/client";
-import { BarChart, PieChart } from "./charts";
-import { getRangeBounds, fmtDateLabel, downloadReportCsv } from "./reportHelpers";
+import { BarChart, PieChart, TrendChart } from "./charts";
+import { getRangeBounds, fmtDateLabel, fmtShortDate, downloadReportCsv } from "./reportHelpers";
 
 const RANGE_OPTIONS = [["weekly", "Weekly"], ["monthly", "Monthly"], ["sixmonth", "6 Months"], ["custom", "Custom"]];
 
@@ -21,6 +21,19 @@ const ACTIVITY_LABELS = {
   tech_screening: "Tech Screenings",
   interview: "Interviews",
   offer: "Offers",
+};
+
+// Status is a state, not an identity — reuses the same colors already
+// shipped on every status badge elsewhere in the app (Job Applications,
+// Candidate Bench activity), so this chart doesn't introduce a second
+// meaning for "green" or "red."
+const STATUS_COLORS = {
+  "Applied": "#D97706",
+  "Submitted to Client": "#9333EA",
+  "Interview Scheduled": "#2563EB",
+  "Offer": "#16A34A",
+  "Rejected": "#DC2626",
+  "No Response": "#6B7280",
 };
 
 function KpiCard({ label, value, sub }) {
@@ -57,7 +70,7 @@ export default function Reports() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap print-hide">
-        <p className="text-sm text-muted">Team performance across applications, outreach, and vendor activity.</p>
+        <p className="text-sm text-muted">Team performance across applications, inbound requirements, and vendor activity.</p>
         <div className="flex items-center gap-2 flex-wrap">
           {RANGE_OPTIONS.map(([key, label]) => (
             <button key={key} onClick={() => setRange(key)}
@@ -99,15 +112,30 @@ export default function Reports() {
             <KpiCard label="Offers" value={report.totals.offers.toLocaleString()} />
             <KpiCard label="Cold Emails" value={report.totals.coldEmails.toLocaleString()} />
             <KpiCard label="Vendor Calls" value={report.totals.vendorCalls.toLocaleString()} />
-            <KpiCard label="Inbound Outreach" value={report.totals.outreach.toLocaleString()} />
+            <KpiCard label="Inbound Requirements" value={report.totals.outreach.toLocaleString()} />
+          </div>
+
+          <div className="card p-4">
+            <div className="text-sm font-semibold mb-1">Applications over time</div>
+            <div className="text-xs text-muted mb-3">
+              {report.trend.granularity === "week" ? "Grouped by week — range is long enough that daily points would overlap." : "Daily."}
+            </div>
+            <TrendChart color="#2a78d6" ariaLabel="Applications over time"
+              data={report.trend.points.map(p => ({ label: fmtShortDate(p.date), value: p.count }))} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="card p-4">
               <div className="text-sm font-semibold mb-3">Applications per manager</div>
-              <BarChart color="#2a78d6" data={report.byManager.map(m => ({ label: m.name, value: m.applications }))} />
+              <BarChart color="#2a78d6" ariaLabel="Applications per manager" data={report.byManager.map(m => ({ label: m.name, value: m.applications }))} />
             </div>
             <div className="card p-4">
+              <div className="text-sm font-semibold mb-3">Applications by status</div>
+              <BarChart ariaLabel="Applications by status" data={Object.entries(STATUS_COLORS).map(([status, color]) => ({
+                label: status, value: report.byStatus[status] || 0, color,
+              }))} />
+            </div>
+            <div className="card p-4 lg:col-span-2">
               <div className="text-sm font-semibold mb-3">Vendor activity mix</div>
               <PieChart data={Object.entries(ACTIVITY_LABELS).map(([key, label]) => ({
                 label, color: ACTIVITY_COLORS[key], value: report.byActivityType[key] || 0,
@@ -130,7 +158,7 @@ export default function Reports() {
                     <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Screenings</th>
                     <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Interviews</th>
                     <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Offers</th>
-                    <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Outreach</th>
+                    <th className="px-4 py-2.5 font-semibold text-muted text-[11px] uppercase tracking-wide text-right">Inbound Reqs.</th>
                   </tr>
                 </thead>
                 <tbody>
